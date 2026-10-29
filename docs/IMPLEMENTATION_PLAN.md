@@ -4,8 +4,8 @@ Completion rule: a milestone is done only with evidence (build output, test outp
 
 | # | Milestone | Exit evidence | Status |
 |---|---|---|---|
-| 1 | Reference analysis, project skeleton, device diagnostics screen | `docs/REFERENCE_ANALYSIS.md`; `gradlew assembleDebug` success on your PC; screenshot/text of device ABI screen | **Docs done. Build not run — needs you.** |
-| 2 | Loopback API (health/info), start/stop, local curl test | `curl` via `adb forward` returns JSON | Not started |
+| 1 | Reference analysis, project skeleton, device diagnostics screen | `docs/REFERENCE_ANALYSIS.md`; app built and run on the Poco C51; ABI screen | **Done** — your build installed and the diagnostics screen showed 32-bit ARM, API 33 |
+| 2 | Loopback API (health/info), start/stop, local curl test | `gradlew test` green; `curl.exe` via `adb forward` returns JSON with a valid key and 401 without | **Code written, not built or run** |
 | 3 | SMS engine, SIM selection, callbacks, Room | Fake-sender tests green; one controlled real SMS to your own number | Not started |
 | 4 | Auth, rate limit, validation, idempotency, tests | Unit + API tests green | Not started |
 | 5 | Tunnel PoC → `TunnelManager` | Remote HTTPS call reaches `/api/v1/health`; failure criteria below | Not started |
@@ -26,3 +26,6 @@ Binary sourcing rules: obtain from the upstream Cloudflare release (or build fro
 
 ## Milestone 1 — what you do on Windows
 See `docs/ANDROID_SETUP.md`.
+
+## Milestone 5 update — 32-bit target
+Device is `zygote32` / armeabi-v7a. Plan: package upstream `cloudflared-linux-arm` as `app/src/main/jniLibs/armeabi-v7a/libcloudflared.so`, set `packaging.jniLibs.useLegacyPackaging = true`, execute from `applicationInfo.nativeLibraryDir`. Record the verified version and SHA-256 in `docs/CLOUDFLARE_SETUP.md`; do not commit the binary until its hash is checked against Cloudflare's published checksum. DNS behaviour on Android to be tested first without any patching.

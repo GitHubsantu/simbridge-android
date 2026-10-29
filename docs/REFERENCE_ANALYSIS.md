@@ -95,3 +95,13 @@ adb shell getprop ro.zygote
 ## 6. Feasibility decision (tunnel)
 
 **Plausible implementation requiring a device test.** Conditions: (a) the device exposes an ABI for which a genuine upstream cloudflared build exists (arm64 or 32-bit arm — upstream release asset names/availability to be checked, not assumed); (b) the binary is executed from the native-lib dir (not `filesDir`); (c) DNS resolution works without patching or with an isolated, documented workaround. If the device is `zygote32`, B's binary is unusable and a 32-bit build must be sourced/built and verified. See `docs/IMPLEMENTATION_PLAN.md` Milestone 5.
+
+## 7. Addendum — device and upstream findings (2026-10-29)
+
+**Poco C51 (Xiaomi 2302EPCC4I), from your adb output and the in-app screen — verified:**
+`ro.product.cpu.abilist = armeabi-v7a,armeabi`, `ro.zygote = zygote32`, API 33 (Android 13), app process `is64Bit = false`, native lib dir ends in `/lib/arm`.
+
+Consequences:
+1. This phone is a **pure 32-bit userspace**. Repository B's arm64 binary can never run on it. This matches the original `lib/arm/libcloudflared.so` ENOENT error: the hypothesis in §3 is now strongly supported (the cause is ABI mismatch; the exact errno path is still inferred, not reproduced).
+2. We need a **32-bit ARM** cloudflared. Upstream Cloudflare publishes `cloudflared-linux-arm`. I downloaded `releases/latest/download/cloudflared-linux-arm` in the analysis environment: ELF 32-bit LSB executable, ARM EABI5, statically linked, 37,134,794 bytes, SHA-256 `276b306200086dee90c10954fa37cf26a6664052fa750e04b1831f69158cd2f6`, contains the version string `2026.10.6`. **Not yet verified:** that this hash matches the checksum Cloudflare publishes in that release's notes, and that the binary actually executes on the phone. Both are Milestone 5 steps.
+3. The binary still contains the `/etc/resolv.conf` string, so the Android DNS problem B worked around is likely to apply. To be tested rather than assumed.
