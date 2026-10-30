@@ -5,10 +5,11 @@ Completion rule: a milestone is done only with evidence (build output, test outp
 | # | Milestone | Exit evidence | Status |
 |---|---|---|---|
 | 1 | Reference analysis, project skeleton, device diagnostics screen | `docs/REFERENCE_ANALYSIS.md`; app built and run on the Poco C51; ABI screen | **Done** — your build installed and the diagnostics screen showed 32-bit ARM, API 33 |
-| 2 | Loopback API (health/info), start/stop, local curl test | `gradlew test` green; `curl.exe` via `adb forward` returns JSON with a valid key and 401 without | **Code written, not built or run** |
-| 3 | SMS engine, SIM selection, callbacks, Room | Fake-sender tests green; one controlled real SMS to your own number | Not started |
-| 4 | Auth, rate limit, validation, idempotency, tests | Unit + API tests green | Not started |
-| 5 | Tunnel PoC → `TunnelManager` | Remote HTTPS call reaches `/api/v1/health`; failure criteria below | Not started |
+| 2 | Loopback API (health/info), start/stop, local curl test | `curl.exe` via `adb forward` returns JSON with a valid key and 401 without | **Done** — user ran both curl calls on the Poco C51: 200 with key, 401 without. (`gradlew test` result not reported.) |
+| 3a | SMS engine, SIM selection, send/delivery callbacks, read-only message endpoints | One real SMS reaches SENT and is visible via the API | **Done** — user sent a real SMS on the Poco C51; API showed `SENT` (no delivery receipt observed) |
+| 3b | Room persistence (survives process death), 30-day retention | record persists after app restart | **Done** — user reported it working on the phone (Room 2.8.5, KSP 2.3.10) |
+| 4 | POST /messages, rate limits, validation, idempotency, bounded queue, tests | device checklist in docs/TESTING.md | **Mostly verified on device** — 202 on POST, 429 + Retry-After when over the limit (user output). Idempotency replay/422 and `gradlew test` results not yet reported |
+| 5 | Tunnel PoC → `TunnelManager` | Remote HTTPS call reaches `/api/v1/health`; criteria below | **Code written, not built or run.** Step 1 (binary executes on the phone) is the first thing to test; see docs/CLOUDFLARE_SETUP.md |
 | 6 | Full UI, foreground service, screen-off test | Device log with screen locked | Not started |
 | 7 | Hardening, docs, debug APK | APK file exists; docs complete | Not started |
 

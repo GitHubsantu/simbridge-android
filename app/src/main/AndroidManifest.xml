@@ -5,6 +5,15 @@
     <!-- Needed to open the loopback listening socket for the API server. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Send SMS through the SIM. Nothing else (no READ_SMS / RECEIVE_SMS / contacts) is needed. -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <!-- Lists active SIMs so the user can pick one explicitly. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+
     <application
         android:name=".SimBridgeApplication"
         android:allowBackup="false"
@@ -27,6 +36,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".sms.SmsResultReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

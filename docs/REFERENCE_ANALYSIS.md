@@ -105,3 +105,8 @@ Consequences:
 1. This phone is a **pure 32-bit userspace**. Repository B's arm64 binary can never run on it. This matches the original `lib/arm/libcloudflared.so` ENOENT error: the hypothesis in §3 is now strongly supported (the cause is ABI mismatch; the exact errno path is still inferred, not reproduced).
 2. We need a **32-bit ARM** cloudflared. Upstream Cloudflare publishes `cloudflared-linux-arm`. I downloaded `releases/latest/download/cloudflared-linux-arm` in the analysis environment: ELF 32-bit LSB executable, ARM EABI5, statically linked, 37,134,794 bytes, SHA-256 `276b306200086dee90c10954fa37cf26a6664052fa750e04b1831f69158cd2f6`, contains the version string `2026.10.6`. **Not yet verified:** that this hash matches the checksum Cloudflare publishes in that release's notes, and that the binary actually executes on the phone. Both are Milestone 5 steps.
 3. The binary still contains the `/etc/resolv.conf` string, so the Android DNS problem B worked around is likely to apply. To be tested rather than assumed.
+
+## 8. Corrections and pin (Milestone 5)
+- The string `2026.2.0` found in repository B's binary is probably a bundled dependency version, not cloudflared's own version; I should not have called it "likely the version" in §2.
+- Upstream `cloudflared-linux-arm` **2026.10.4**: SHA-256 `f29b44e97ec18dd2971dfdd9bad0c6d460aaa78223b91b186219f02135c08d8c` — downloaded in the analysis environment and compared with the checksum published in Cloudflare's release notes: **match**. ELF 32-bit ARM, contains exactly one `/etc/resolv.conf` string (16 bytes, same length as `//proc/self/fd/0`).
+- A download labelled 2026.10.6 (SHA-256 `276b3062…`) also exists, but its checksum was not found on the release page I could read, so it is **not** pinned.

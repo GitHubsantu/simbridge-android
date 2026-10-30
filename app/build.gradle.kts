@@ -1,6 +1,12 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+}
+
+ksp {
+    // Room exports its schema so future migrations can be validated. Commit the generated /schemas folder.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 android {
@@ -35,6 +41,10 @@ android {
         compose = true
     }
     packaging {
+        // cloudflared is executed from the native-library directory, so it must be extracted to disk.
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
         }
@@ -52,7 +62,12 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
+    testImplementation(libs.ktor.server.test.host)
+    // Real org.json for JVM unit tests (the android.jar one is a stub that throws).
+    testImplementation(libs.json)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
