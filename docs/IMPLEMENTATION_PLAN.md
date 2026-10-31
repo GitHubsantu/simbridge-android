@@ -9,8 +9,8 @@ Completion rule: a milestone is done only with evidence (build output, test outp
 | 3a | SMS engine, SIM selection, send/delivery callbacks, read-only message endpoints | One real SMS reaches SENT and is visible via the API | **Done** — user sent a real SMS on the Poco C51; API showed `SENT` (no delivery receipt observed) |
 | 3b | Room persistence (survives process death), 30-day retention | record persists after app restart | **Done** — user reported it working on the phone (Room 2.8.5, KSP 2.3.10) |
 | 4 | POST /messages, rate limits, validation, idempotency, bounded queue, tests | device checklist in docs/TESTING.md | **Mostly verified on device** — 202 on POST, 429 + Retry-After when over the limit (user output). Idempotency replay/422 and `gradlew test` results not yet reported |
-| 5 | Tunnel PoC → `TunnelManager` | Remote HTTPS call reaches `/api/v1/health`; criteria below | **Code written, not built or run.** Step 1 (binary executes on the phone) is the first thing to test; see docs/CLOUDFLARE_SETUP.md |
-| 6 | Full UI, foreground service, screen-off test | Device log with screen locked | Not started |
+| 5 | Tunnel PoC → `TunnelManager` | Remote HTTPS call reaches `/api/v1/health`; criteria below | **Verified end to end by user:** `https://sms-api.piratemods.com/api/v1/health` → 401 `UNAUTHORIZED` without a key and 200 with it, served by SimBridge through Cloudflare. Not yet verified: from a different network/phone, DNS patch variant used, unauthenticated POST through the tunnel, 30-minute screen-off run |
+| 6 | Full UI, foreground service, screen-off test | docs/TESTING.md Milestone 6 checklist | **Code written, not built or run** (5-tab UI, GatewayService with `specialUse` type, opt-in boot start, restart-loop guard, event log, battery guidance) |
 | 7 | Hardening, docs, debug APK | APK file exists; docs complete | Not started |
 
 ## Milestone 5 PoC — success / failure criteria

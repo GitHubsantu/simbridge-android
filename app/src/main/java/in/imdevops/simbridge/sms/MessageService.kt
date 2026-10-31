@@ -105,7 +105,7 @@ class MessageService(
                     d.retryAfterSeconds,
                 )
             }
-            val sim = when (val r = SubscriptionResolver.resolve(requestedSubscriptionId, subscriptions.lookup())) {
+            val sim = when (val r = SubscriptionResolver.resolve(requestedSubscriptionId, subscriptions.lookup(), cfg.preferredSubscriptionId)) {
                 is SimResolution.Chosen -> r.sim
                 is SimResolution.Rejected -> return SendOutcome.Rejected(r.code, r.message)
             }

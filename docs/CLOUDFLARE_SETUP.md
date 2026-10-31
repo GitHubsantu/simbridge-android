@@ -52,3 +52,10 @@ A WAF rate-limiting rule on `sms-api.YOURDOMAIN.com`, and ideally Cloudflare Acc
 
 ## Licensing note
 cloudflared is Cloudflare's software (believed Apache-2.0; **verify the upstream LICENSE** before distributing an APK containing it, and ship its notice in the About screen). The binary is fetched at build time and is git-ignored, never committed.
+
+## Updating cloudflared
+**The app cannot update the binary by itself — by design.** Android only lets an app execute files that were installed with the APK (the read-only native-library folder). Downloading a new binary into app storage and running it is blocked on current Android; the reference project only did it by setting the app's target SDK to 28, which weakens security and is not acceptable here.
+
+What the app does: the Tunnel tab shows the bundled version (from `--version`) and a **Check for newer release** button that asks GitHub for the latest upstream tag and compares it. This is informational only and sends no data about you.
+
+To update: open the new release page, copy the SHA-256 listed for `cloudflared-linux-arm`, put the version and hash into `tools/fetch-cloudflared.ps1`, run it, rebuild and reinstall. The script refuses any file whose hash does not match.

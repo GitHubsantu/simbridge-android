@@ -15,9 +15,10 @@ object CloudflaredLog {
 
     fun parse(line: String): LogEvent {
         val idx = connIndex.find(line)?.groupValues?.get(1)?.toIntOrNull()
+        val lower = line.lowercase()
         return when {
-            "Unregistered tunnel connection" in line && idx != null -> LogEvent.Unregistered(idx)
-            "Registered tunnel connection" in line && idx != null -> LogEvent.Registered(idx)
+            "unregistered tunnel connection" in lower && idx != null -> LogEvent.Unregistered(idx)
+            "registered tunnel connection" in lower && idx != null -> LogEvent.Registered(idx)
             dns.containsMatchIn(line) -> LogEvent.DnsFailure
             "token" in line.lowercase() && listOf("invalid", "malformed", "not valid", "could not").any { it in line.lowercase() } ->
                 LogEvent.TokenProblem

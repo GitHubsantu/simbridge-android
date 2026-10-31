@@ -7,7 +7,7 @@ sealed interface SimResolution {
 
 /** Decides which SIM to use. Never guesses when more than one SIM could be meant. */
 object SubscriptionResolver {
-    fun resolve(requested: Int?, lookup: SubscriptionLookup): SimResolution {
+    fun resolve(requested: Int?, lookup: SubscriptionLookup, preferred: Int? = null): SimResolution {
         val available = when (lookup) {
             SubscriptionLookup.PermissionMissing -> return SimResolution.Rejected(
                 "PERMISSION_DENIED", "Phone-state permission is needed to list SIMs.",
@@ -22,6 +22,8 @@ object SubscriptionResolver {
                 ?: return SimResolution.Rejected("INVALID_SUBSCRIPTION", "The requested SIM is not active.")
             return SimResolution.Chosen(match)
         }
+        // A remembered preference is used only while that SIM is still active; otherwise fall back to automatic.
+        preferred?.let { id -> available.sims.firstOrNull { it.subscriptionId == id } }?.let { return SimResolution.Chosen(it) }
         available.sims.firstOrNull { it.subscriptionId == available.defaultSmsSubscriptionId }
             ?.let { return SimResolution.Chosen(it) }
         if (available.sims.size == 1) return SimResolution.Chosen(available.sims.first())

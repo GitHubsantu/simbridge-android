@@ -5,6 +5,8 @@ data class ApiSettings(
     val perMinute: Int = 5,
     val perDay: Int = 100,
     val maxMessageChars: Int = 320,
+    /** SIM used when a request names none. Null = automatic (Android's default SMS SIM, or the only SIM). */
+    val preferredSubscriptionId: Int? = null,
 ) {
     /** Returns a human-readable problem, or null if the values are acceptable. */
     fun validate(): String? = when {

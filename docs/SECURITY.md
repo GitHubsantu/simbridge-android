@@ -16,11 +16,13 @@ A phone that can send SMS on demand is a cost- and abuse-sensitive endpoint. **A
 | No automatic SMS retry | Implemented by design |
 | No CORS headers; no wildcard | Implemented (none sent) |
 | Message text never stored; recipients kept 30 days | Implemented |
-| Minimal permissions (SEND_SMS, READ_PHONE_STATE, INTERNET) | Implemented |
+| Minimal permissions: SEND_SMS, READ_PHONE_STATE, INTERNET, ACCESS_NETWORK_STATE (DNS servers for the tunnel), FOREGROUND_SERVICE (+SPECIAL_USE), POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED (only acts if "Start after reboot" is on) | Implemented. No READ_SMS/RECEIVE_SMS/contacts |
 | `allowBackup=false` | Implemented |
 | IP allow-listing | **Not implemented.** Origin is always loopback, so the source IP would be cloudflared, not the caller; use Cloudflare Access / WAF rules instead |
 | Tunnel token encrypted with an Android Keystore AES-GCM key; passed to cloudflared via environment, not argv; log lines redacted | Implemented (Milestone 5), unverified on device. Same-UID processes could still read the environment |
 | API key stored hashed (not Keystore-wrapped) | Acceptable: nothing secret to protect; revisit if keys become retrievable |
+| Update check | Outbound HTTPS GET to api.github.com only when you press the button; no identifiers sent | Implemented |
+| Battery-optimization exemption (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) | Optional, user-confirmed system dialog. Google Play restricts this permission; fine for sideloaded builds, revisit before any store release |
 | TLS | Provided by Cloudflare at the edge; loopback hop is plain HTTP by design |
 
 Operational advice: generate a fresh key when moving from testing to real use; never paste keys into chats or commits; add a Cloudflare WAF rate-limit rule and optionally Cloudflare Access service tokens in front of `sms-api.YOURDOMAIN.com`; send only to recipients who have consented, and respect your carrier's SMS terms and local messaging law.

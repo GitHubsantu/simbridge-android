@@ -35,4 +35,14 @@ class SubscriptionResolverTest {
 
     @Test fun ambiguousSimsAreNotGuessed() =
         assertEquals("SIM_SELECTION_REQUIRED", rejectedCode(SubscriptionResolver.resolve(null, SubscriptionLookup.Available(listOf(sim1, sim2), null))))
+
+    @Test fun preferredSimBeatsDefaultButOnlyWhileActive() {
+        val both = SubscriptionLookup.Available(listOf(sim1, sim2), 11)
+        assertEquals(sim2, (SubscriptionResolver.resolve(null, both, preferred = 22) as SimResolution.Chosen).sim)
+        // preferred SIM was removed: fall back to the default SMS SIM instead of failing
+        val onlyOne = SubscriptionLookup.Available(listOf(sim1), 11)
+        assertEquals(sim1, (SubscriptionResolver.resolve(null, onlyOne, preferred = 22) as SimResolution.Chosen).sim)
+        // an explicit request still wins over the preference
+        assertEquals(sim1, (SubscriptionResolver.resolve(11, both, preferred = 22) as SimResolution.Chosen).sim)
+    }
 }

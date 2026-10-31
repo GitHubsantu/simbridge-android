@@ -17,9 +17,14 @@ class SettingsStore(context: Context) {
             .putInt("per_minute", settings.perMinute)
             .putInt("per_day", settings.perDay)
             .putInt("max_chars", settings.maxMessageChars)
+            .putInt("preferred_sim", settings.preferredSubscriptionId ?: -1)
             .apply()
         cached = settings
         return null
+    }
+
+    fun setPreferredSim(subscriptionId: Int?) {
+        save(cached.copy(preferredSubscriptionId = subscriptionId))
     }
 
     private fun read(): ApiSettings {
@@ -28,6 +33,7 @@ class SettingsStore(context: Context) {
             prefs.getInt("per_minute", d.perMinute),
             prefs.getInt("per_day", d.perDay),
             prefs.getInt("max_chars", d.maxMessageChars),
+            prefs.getInt("preferred_sim", -1).takeIf { it >= 0 },
         )
         return if (s.validate() == null) s else d
     }

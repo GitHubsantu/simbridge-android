@@ -4,6 +4,17 @@
 
     <!-- Needed to open the loopback listening socket for the API server. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Lets the tunnel read the phone's DNS servers (cloudflared has no resolv.conf on Android). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Keeps the gateway alive in the background with a visible notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Android 13+: needed for the notification to be shown. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lets the app ask Android to exempt it from battery optimization (sideloaded builds only). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Only used if you switch on "Start after reboot". -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Send SMS through the SIM. Nothing else (no READ_SMS / RECEIVE_SMS / contacts) is needed. -->
     <uses-permission android:name="android.permission.SEND_SMS" />
@@ -36,6 +47,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.GatewayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local SMS gateway: loopback HTTP API plus a Cloudflare Tunnel connector that must keep running while the screen is off" />
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".sms.SmsResultReceiver"

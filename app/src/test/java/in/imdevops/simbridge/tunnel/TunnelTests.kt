@@ -53,6 +53,10 @@ class CloudflaredLogTest {
         assertEquals(TunnelState.Starting, t.onLine("INF Unregistered tunnel connection connIndex=1"))
     }
 
+    @Test fun parsingIgnoresCase() {
+        assertEquals(LogEvent.Registered(2), CloudflaredLog.parse("INF registered tunnel connection connIndex=2 location=sin01"))
+    }
+
     @Test fun dnsFailureProducesHintInFailureReason() {
         val t = TunnelTracker()
         t.onLine("ERR Unable to establish connection error=\"lookup region1.v2.argotunnel.com on 127.0.0.1:53: read udp: connection refused\"")

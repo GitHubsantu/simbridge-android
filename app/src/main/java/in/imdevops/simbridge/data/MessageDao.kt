@@ -27,6 +27,9 @@ interface MessageDao {
     @Query("SELECT created_at FROM messages WHERE created_at > :since ORDER BY created_at DESC LIMIT 10000")
     suspend fun createdSince(since: Long): List<Long>
 
+    @Query("SELECT COUNT(*) FROM messages WHERE status IN (:statuses)")
+    suspend fun countWithStatus(statuses: List<String>): Int
+
     @Query("DELETE FROM messages WHERE created_at < :cutoff")
     suspend fun deleteOlderThan(cutoff: Long): Int
 }

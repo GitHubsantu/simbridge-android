@@ -3,6 +3,7 @@ package `in`.imdevops.simbridge.data
 import androidx.room.withTransaction
 import `in`.imdevops.simbridge.sms.MessageStore
 import `in`.imdevops.simbridge.sms.SmsRecord
+import `in`.imdevops.simbridge.sms.SmsStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -31,4 +32,7 @@ class RoomMessageStore(private val db: AppDatabase, recentLimit: Int = 50) : Mes
     override suspend fun purgeOlderThan(cutoffMillis: Long): Int = dao.deleteOlderThan(cutoffMillis)
 
     override suspend fun createdTimestampsSince(sinceMillis: Long): List<Long> = dao.createdSince(sinceMillis)
+
+    override suspend fun countWithStatus(statuses: Set<SmsStatus>): Int =
+        dao.countWithStatus(statuses.map { it.name })
 }

@@ -17,6 +17,7 @@ interface MessageStore {
     suspend fun purgeOlderThan(cutoffMillis: Long): Int
     /** Creation times (newest first, capped at 10 000) of records newer than [sinceMillis]; used for rate limits. */
     suspend fun createdTimestampsSince(sinceMillis: Long): List<Long>
+    suspend fun countWithStatus(statuses: Set<SmsStatus>): Int
 }
 
 /** Non-persistent store used by unit tests. The app itself uses RoomMessageStore. */
@@ -53,4 +54,6 @@ class InMemoryMessageStore(private val capacity: Int = 200) : MessageStore {
 
     override suspend fun createdTimestampsSince(sinceMillis: Long): List<Long> =
         state.value.map { it.createdAt }.filter { it > sinceMillis }.take(10_000)
+
+    override suspend fun countWithStatus(statuses: Set<SmsStatus>): Int = state.value.count { it.status in statuses }
 }

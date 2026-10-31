@@ -15,6 +15,8 @@ import `in`.imdevops.simbridge.data.RoomIdempotencyStore
 import `in`.imdevops.simbridge.data.RoomMessageStore
 import `in`.imdevops.simbridge.sms.MessageStore
 import `in`.imdevops.simbridge.sms.SettingsStore
+import `in`.imdevops.simbridge.service.GatewayPrefs
+import kotlinx.coroutines.flow.MutableStateFlow
 import `in`.imdevops.simbridge.api.TunnelJson
 import `in`.imdevops.simbridge.tunnel.CloudflaredTunnelManager
 import `in`.imdevops.simbridge.tunnel.TokenVault
@@ -48,6 +50,10 @@ class SimBridgeApplication : Application() {
         private set
     lateinit var tunnelPrefs: TunnelPrefs
         private set
+    lateinit var gatewayPrefs: GatewayPrefs
+        private set
+    /** True while GatewayService is alive in this process. */
+    val gatewayActive = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -58,6 +64,13 @@ class SimBridgeApplication : Application() {
         tunnelManager = CloudflaredTunnelManager(this, appScope)
         tokenVault = TokenVault(this)
         tunnelPrefs = TunnelPrefs(this)
+        gatewayPrefs = GatewayPrefs(this)
+        if (gatewayPrefs.desiredRunning) {
+            gatewayPrefs.addEvent(
+                System.currentTimeMillis(),
+                "New app process started while the gateway was marked running: the previous process ended without a clean stop (killed by Android/battery manager, crash, or update)",
+            )
+        }
         // Keep recipient numbers only for a limited time.
         appScope.launch {
             messageStore.purgeOlderThan(System.currentTimeMillis() - RETENTION_MILLIS)

@@ -21,3 +21,15 @@ Real-SMS tests are manual only: use your own number and respect limits.
 - 401 without key; 202 with key; same `Idempotency-Key` twice → second is 200 replay and only one SMS arrives.
 - Send > per-minute limit quickly → 429 with `Retry-After`.
 - Oversized body → 413. Wrong `Content-Type` → 415.
+
+## Device checklist for Milestone 6 (foreground service)
+1. Home → **Start gateway** (accept the notification prompt). A notification "SimBridge gateway — API on 127.0.0.1:8080 · tunnel connected (n)" appears.
+2. Lock the screen, wait 5 minutes, then from another network: `curl.exe -i https://sms-api.YOURDOMAIN.com/api/v1/health` → 401, and with the key → 200.
+3. Swipe the app out of recent apps. Check the notification is still there and the URL still answers. Diagnostics → Service events should list "App swiped away…".
+4. Send a real SMS through the public URL; Messages tab shows it; status reaches SENT.
+5. Home → **Stop gateway** (or notification **Stop**): notification disappears, public URL stops answering, events list "Stopped by user".
+6. Force-stop the app in Android settings, reopen it: Diagnostics must show "New app process started while the gateway was marked running…" only if it had been running (an unclean end), and **not** after a clean stop.
+7. Turn on "Start after reboot", reboot the phone, wait 2 minutes, check the notification and URL. MIUI may block this unless Autostart is enabled for the app — the event log will say "refused" if Android blocked it.
+8. Leave it running for 30 minutes and then several hours with the screen off; note when (if) it dies. Record the time from Service events.
+
+Automated: `RestartGuardTest` covers the restart-loop guard. The service itself is not unit-tested.
