@@ -25,6 +25,17 @@ class ElfInfoTest {
         assertEquals(listOf("armeabi-v7a", "armeabi"), elf.compatibleAbis)
     }
 
+    @Test fun parsesThe64BitArmHeaderOfUpstreamCloudflared() {
+        // First 20 bytes of the real cloudflared-linux-arm64 2026.10.4 download (SHA-256 2b7203b4...).
+        val real = "7f454c460201010000000000000000000200b700".chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val elf = ElfInfo.parse(real)!!
+        assertTrue(elf.is64Bit)
+        assertEquals("AArch64", elf.architecture)
+        // a 64-bit phone that can also run 32-bit apps accepts it; a pure 32-bit phone (the Poco C51) does not
+        assertEquals(BinaryVerdict.OK, BinaryCheck.verdict(true, elf, listOf("arm64-v8a", "armeabi-v7a", "armeabi")))
+        assertEquals(BinaryVerdict.WRONG_ARCH, BinaryCheck.verdict(true, elf, listOf("armeabi-v7a", "armeabi")))
+    }
+
     @Test fun rejectsNonElfAndShortInput() {
         assertNull(ElfInfo.parse(ByteArray(20)))
         assertNull(ElfInfo.parse(ByteArray(5)))

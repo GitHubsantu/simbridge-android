@@ -34,8 +34,11 @@ The API layer depends on the `MessageService` and tunnel *status* only; nothing 
 | Limits | Derived from persisted history (restart-proof); serialized sends; max 16 pending | V (429); S (tests) |
 | Idempotency | Persisted 24 h; reserve-then-complete so concurrent duplicates send once | S (concurrency test passes); replay path not yet reported from device |
 | Destination control | Built-in premium/satellite prefix block + owner allow-list | S (unit tests); U on device |
-| Tunnel | Upstream `cloudflared-linux-arm` 2026.10.4 (hash verified), executed from `nativeLibraryDir` | V |
+| Tunnel | Upstream `cloudflared-linux-arm` and `cloudflared-linux-arm64` 2026.10.4 (hashes verified against Cloudflare's release notes), executed from `nativeLibraryDir` | V on a 32-bit phone (Poco C51) and on a 64-bit phone |
 | Tunnel DNS | resolv.conf fed via stdin; binary optionally patched (`-PatchResolv`) | V that tunnel works; U which variant was used |
 | Foreground service type | `specialUse` (Android 15 limits `dataSync` to ~6 h per 24 h) | S (Android docs); V runs |
 | Updating cloudflared | Rebuild only. App cannot run downloaded executables | S |
 | Loop guard | ≤3 automatic restarts per 10 min, no auto-restart of a failed tunnel | S (unit test) |
+| Release packaging | ABI splits: `armeabi-v7a`, `arm64-v8a` and a universal APK; `useLegacyPackaging = true` so cloudflared is extracted to disk; `keepDebugSymbols` so it is not stripped | V (build output proves each APK holds the byte-identical binary) |
+| Release signing | `keystore.properties` (git-ignored); APK Signature Schemes v1 + v2 + v3 enabled | V (build and install); signature check with `apksigner` recommended before each release |
+| Minification | R8 off for release | S (deliberate; untested with Ktor/Room) |
