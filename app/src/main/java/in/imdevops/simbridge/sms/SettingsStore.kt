@@ -18,6 +18,7 @@ class SettingsStore(context: Context) {
             .putInt("per_day", settings.perDay)
             .putInt("max_chars", settings.maxMessageChars)
             .putInt("preferred_sim", settings.preferredSubscriptionId ?: -1)
+            .putString("allowed_prefixes", settings.allowedPrefixes.joinToString(","))
             .apply()
         cached = settings
         return null
@@ -34,6 +35,7 @@ class SettingsStore(context: Context) {
             prefs.getInt("per_day", d.perDay),
             prefs.getInt("max_chars", d.maxMessageChars),
             prefs.getInt("preferred_sim", -1).takeIf { it >= 0 },
+            prefs.getString("allowed_prefixes", "").orEmpty().split(",").filter { it.isNotBlank() },
         )
         return if (s.validate() == null) s else d
     }

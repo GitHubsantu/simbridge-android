@@ -53,6 +53,16 @@ class MessageServiceTest {
         assertTrue(store.records.value.isEmpty())
     }
 
+    @Test fun destinationRestrictionsRejectBeforeAnythingHappens() = runBlocking {
+        cfg = cfg.copy(allowedPrefixes = listOf("+91"))
+        assertEquals("DESTINATION_NOT_ALLOWED", rejected(service.send("+14155552671", "hi", idempotencyKey = "d1")).code)
+        assertEquals("DESTINATION_NOT_ALLOWED", rejected(service.send("+979123456789", "hi")).code)
+        assertEquals(0, sender.submitCalls)
+        assertTrue(store.records.value.isEmpty())
+        // the rejected key was never reserved, so the same key works for an allowed number
+        assertEquals(SmsStatus.SUBMITTING, created(service.send(num, "hi", idempotencyKey = "d1")).status)
+    }
+
     @Test fun happyPathMovesThroughSubmittingSentDelivered() = runBlocking {
         val r = created(service.send("+91 98765 43210", "hello"))
         assertEquals(SmsStatus.SUBMITTING, r.status)

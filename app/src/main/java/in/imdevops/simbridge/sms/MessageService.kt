@@ -41,6 +41,9 @@ class MessageService(
             is PhoneNumberResult.Valid -> n.e164
             is PhoneNumberResult.Invalid -> return SendOutcome.Rejected("INVALID_NUMBER", n.reason)
         }
+        DestinationPolicy.check(number, cfg.allowedPrefixes)?.let {
+            return SendOutcome.Rejected("DESTINATION_NOT_ALLOWED", it)
+        }
         if (body.isBlank()) return SendOutcome.Rejected("EMPTY_MESSAGE", "Message text is empty.")
         if (body.length > cfg.maxMessageChars) {
             return SendOutcome.Rejected("MESSAGE_TOO_LONG", "Message exceeds ${cfg.maxMessageChars} characters.")

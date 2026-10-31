@@ -183,6 +183,7 @@ fun DashboardScreen(app: SimBridgeApplication, modifier: Modifier = Modifier) {
 
         val hints = buildList {
             if (!hasKey) add("Create an API key on the API tab.")
+            if (app.settingsStore.load().allowedPrefixes.isEmpty()) add("No destination restriction set. On the API tab, limit sending to your own country prefix (for example +91).")
             if (!smsOk) add("Grant the SMS permission on the API tab, otherwise sending is refused.")
             probe?.takeIf { !it.ok }?.let { add("Public URL: ${it.detail}") }
         }

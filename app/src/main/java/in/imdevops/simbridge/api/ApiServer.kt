@@ -33,14 +33,6 @@ import kotlinx.coroutines.withTimeout
 import java.net.InetSocketAddress
 import java.net.Socket
 
-sealed interface ServerState {
-    data object Stopped : ServerState
-    data object Starting : ServerState
-    /** Only reported after a real TCP connection to the loopback port succeeded. */
-    data class Running(val port: Int) : ServerState
-    data class Failed(val reason: String) : ServerState
-}
-
 data class SendCommand(
     val to: String,
     val body: String,
@@ -250,6 +242,7 @@ internal fun Application.installRoutes(context: ApiContext, throttle: FailedAuth
 private fun statusFor(code: String): HttpStatusCode = when (code) {
     "INVALID_NUMBER", "EMPTY_MESSAGE", "MESSAGE_TOO_LONG", "INVALID_SUBSCRIPTION", "SIM_SELECTION_REQUIRED" ->
         HttpStatusCode.BadRequest
+    "DESTINATION_NOT_ALLOWED" -> HttpStatusCode.Forbidden
     "RATE_LIMITED" -> HttpStatusCode.TooManyRequests
     "IDEMPOTENCY_KEY_REUSED" -> HttpStatusCode.UnprocessableEntity
     "IDEMPOTENCY_IN_PROGRESS" -> HttpStatusCode.Conflict

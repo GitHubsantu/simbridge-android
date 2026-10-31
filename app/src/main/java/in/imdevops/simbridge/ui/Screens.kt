@@ -1,6 +1,8 @@
 package `in`.imdevops.simbridge.ui
 
 import android.Manifest
+import android.app.Activity
+import android.view.WindowManager
 import android.content.Intent
 import android.os.Build
 import android.os.Process
@@ -24,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -153,6 +156,12 @@ private fun ApiKeyCard(app: SimBridgeApplication) {
     var confirm by remember { mutableStateOf(false) }
     val port = ApiServer.DEFAULT_PORT
     val server by app.apiServer.state.collectAsState()
+    // While a freshly generated key is on screen, block screenshots, screen recording and the recents thumbnail.
+    val activity = LocalContext.current as? Activity
+    DisposableEffect(newKey != null) {
+        if (newKey != null) activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,7 +177,7 @@ private fun ApiKeyCard(app: SimBridgeApplication) {
             )
             Text(if (hasKey) "A key is set. Only its hash is stored, so it cannot be shown again." else "No key yet.")
             newKey?.let { key ->
-                Text("Copy it now (long-press to select). It will not be shown again:")
+                Text("Copy it now (long-press to select). It will not be shown again. Screenshots are blocked while it is visible.")
                 SelectionContainer { Text(key, style = MaterialTheme.typography.bodyLarge) }
             }
             OutlinedButton(onClick = {

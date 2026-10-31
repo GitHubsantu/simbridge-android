@@ -1,5 +1,10 @@
 # Testing
 
+## What has actually been run
+- On the Poco C51 by the project owner: local and public HTTPS requests (401 without a key, 200 with), `POST /messages` → 202 and real SMS reaching `SENT`, 429 with `Retry-After`, Room persistence, tunnel end to end, foreground service and UI.
+- In the build sandbox (Milestone 7): the **pure-logic subset** of the real sources was compiled with `kotlinc 2.2.10` and the real test files were run with a minimal JUnit stand-in: **65 tests passed, 0 failed** (api key, throttle, JSON, phone validation, SIM resolution, state machine, message service incl. concurrency/idempotency/rate limits/destinations, rate policy, ELF/arch check, log parser, inputs, versions, restart guard, notification text). Three deliberate bugs (premium block removed, auth always true, rate limit off by one) were each caught by the tests.
+- **Not run anywhere yet:** `ApiRoutesTest` (needs Ktor jars), `SendRequestParserTest` (needs org.json), `RoomMessageStoreTest` (needs a device), and the Android-dependent classes. Run `.\gradlew.bat test` and `.\gradlew.bat connectedDebugAndroidTest` and report the output.
+
 ## Automated (PowerShell, project root)
 ```powershell
 .\gradlew.bat test                      # JVM unit + in-process API tests (fake SMS backend, no SMS sent)

@@ -26,3 +26,54 @@ A phone that can send SMS on demand is a cost- and abuse-sensitive endpoint. **A
 | TLS | Provided by Cloudflare at the edge; loopback hop is plain HTTP by design |
 
 Operational advice: generate a fresh key when moving from testing to real use; never paste keys into chats or commits; add a Cloudflare WAF rate-limit rule and optionally Cloudflare Access service tokens in front of `sms-api.YOURDOMAIN.com`; send only to recipients who have consented, and respect your carrier's SMS terms and local messaging law.
+
+
+---
+# Security review log — Milestone 7
+
+Scope: every file in `app/src/main`, the manifest, build files, and the repository for secrets. Method: source review + grep audits + compiling the pure-logic code and running its tests locally (65 tests, plus three deliberate "mutations" to prove the tests catch broken rules).
+
+## Findings fixed in this milestone
+| # | Finding | Severity | Fix |
+|---|---|---|---|
+| 1 | `data_extraction_rules.xml` / `backup_rules.xml` were unedited template placeholders; device-transfer rules were undefined | Medium | Both now exclude every domain (root, file, database, sharedpref, external) from cloud backup and device transfer; `allowBackup=false` kept |
+| 2 | Cleartext traffic not explicitly forbidden | Low | `usesCleartextTraffic="false"` (the app only makes HTTPS calls; the inbound loopback server is unaffected) |
+| 3 | A freshly generated API key could be captured by screenshots, screen recording or the recents thumbnail | Medium | `FLAG_SECURE` is set only while a new key is on screen and cleared afterwards; the key view disappears when you leave the tab |
+| 4 | Anyone with the key could send to premium-rate/satellite numbers (toll-fraud risk) | High (cost) | `DestinationPolicy`: built-in block of `+979 +881 +882 +883 +870 +878`, plus an owner allow-list of country prefixes (`403 DESTINATION_NOT_ALLOWED`). Home shows a warning until an allow-list is set. Best effort: premium ranges inside individual countries cannot be enumerated |
+| 5 | Test method returned a value (JUnit would refuse to run it) | Test quality | Fixed; the local runner now enforces void return |
+
+## Audit results (no change needed)
+- **Exported components:** `MainActivity` (launcher, required), `BootReceiver` (system broadcasts only, acts only if you enabled it). `GatewayService` and `SmsResultReceiver` are **not exported**; SMS callback PendingIntents are explicit and `FLAG_IMMUTABLE`. No ContentProvider, WebView or FileProvider.
+- **Authentication:** every route requires the key; no unauthenticated endpoint exists (tests: 401 on missing/wrong key for each route, no sender call without auth). Same body for all auth failures.
+- **Injection:** Room uses bound parameters; message id and Idempotency-Key are matched against strict regexes; JSON fields are type-checked; numbers must be strict E.164.
+- **Secrets:** no `Log`/`println`/stack-trace output anywhere in app code; no keystores, `.env` or token files tracked; the only token-looking string is a fake in a unit test. The tunnel token is Keystore-encrypted at rest, passed to cloudflared via environment (not argv) and redacted from displayed logs.
+- **Network exposure:** server binds `127.0.0.1` only; the tunnel route should point only at `http://127.0.0.1:8080`.
+- **Message content:** never persisted by SimBridge. Because the app is not the default SMS app, Android does not copy sent texts into the system SMS database via this path (not independently verified on the device); the carrier of course sees the SMS.
+- **Licences:** cloudflared, Ktor and AndroidX are Apache-2.0 (verified from upstream LICENSE files).
+
+## Accepted risks / not covered
+- One shared API key (no scopes, no per-client revocation). Anyone with it can send within your limits, so rotate it if it ever leaves your hands. **Keys pasted into chats or screenshots must be regenerated.**
+- Failed-auth throttling is global, not per client IP, because every request reaches the app from cloudflared on loopback. A valid key is never blocked by it.
+- Message list/detail endpoints return full recipient numbers to the key holder.
+- The debug APK is debuggable and debug-signed; `adb run-as` can read app data on a debuggable build. Never distribute it. Release (R8) builds were not tested.
+- Dependency CVE scanning was **not** run (no access to advisory databases from the build sandbox). Run `.\gradlew.bat dependencies` and a scanner of your choice (for example OWASP Dependency-Check) before sharing builds.
+- `-PatchResolv` replaces one string in the cloudflared binary; the installed file is then not byte-identical to Cloudflare's release.
+- Cloudflare-side protection (WAF rate limiting, Cloudflare Access) is **your** configuration and was not inspected.
+- Ktor route tests (`ApiRoutesTest`) and Room/instrumented tests could not be run in the build sandbox; run them with Gradle.
+
+## Checks only you can run on the phone/PC
+1. **Not reachable on the LAN** (phone on Wi-Fi, PC on the same network):
+   ```powershell
+   adb shell ip -f inet addr show wlan0        # note the phone's IP
+   curl.exe --max-time 5 http://PHONE_IP:8080/api/v1/health   # must FAIL (refused/timeout)
+   ```
+2. **Everything needs the key, through the tunnel too** (each must be 401):
+   ```powershell
+   foreach ($p in "health","info","messages","tunnel/status") { curl.exe -s -o NUL -w "$p -> %{http_code}`n" https://sms-api.YOURDOMAIN.com/api/v1/$p }
+   ```
+3. **Failed-auth throttle:** send ~25 requests with a wrong key; later ones become 429, while the correct key still returns 200.
+4. **Premium/destination block:** POST a message to `+979123456789` with a valid key → `403 DESTINATION_NOT_ALLOWED`. Set `+91` as the allow-list, then POST to another country → 403.
+5. **Idempotency:** same `Idempotency-Key` + same body twice → second is `200` with `"idempotent_replay":true`, one SMS only; different body with the same key → `422`.
+6. **Key screenshot block:** generate a key and try to take a screenshot (should be blocked or black).
+7. **Backup flags:** `adb shell dumpsys package in.imdevops.simbridge | findstr /i "allowBackup debuggable"` (expect `ALLOW_BACKUP` absent; `DEBUGGABLE` present on a debug build only).
+8. **Cloudflare dashboard:** add a WAF rate-limiting rule for `sms-api.YOURDOMAIN.com`, and consider Cloudflare Access with a service token.

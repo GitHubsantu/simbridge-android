@@ -165,6 +165,7 @@ internal fun SecurityCard(app: SimBridgeApplication) {
     var perMinute by remember { mutableStateOf(current.perMinute.toString()) }
     var perDay by remember { mutableStateOf(current.perDay.toString()) }
     var maxChars by remember { mutableStateOf(current.maxMessageChars.toString()) }
+    var prefixes by remember { mutableStateOf(current.allowedPrefixes.joinToString(", ")) }
     var status by remember { mutableStateOf<String?>(null) }
 
     Card(Modifier.fillMaxWidth()) {
@@ -186,8 +187,22 @@ internal fun SecurityCard(app: SimBridgeApplication) {
                 value = maxChars, onValueChange = { maxChars = it.filter(Char::isDigit).take(4) }, singleLine = true,
                 label = { Text("Max message length (1–1000)") }, modifier = Modifier.fillMaxWidth(),
             )
+            OutlinedTextField(
+                value = prefixes, onValueChange = { prefixes = it.take(80) }, singleLine = true,
+                label = { Text("Allowed country prefixes (e.g. +91). Empty = any") }, modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Restricting destinations to your own country blocks most abuse and premium-rate fraud. Some premium/satellite ranges are always blocked.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             OutlinedButton(onClick = {
+                val parsed = `in`.imdevops.simbridge.sms.DestinationPolicy.parse(prefixes)
+                if (parsed is `in`.imdevops.simbridge.sms.DestinationPolicy.Parsed.Bad) {
+                    status = parsed.message
+                    return@OutlinedButton
+                }
                 val candidate = app.settingsStore.load().copy(
+                    allowedPrefixes = (parsed as `in`.imdevops.simbridge.sms.DestinationPolicy.Parsed.Ok).prefixes,
                     perMinute = perMinute.toIntOrNull() ?: 0,
                     perDay = perDay.toIntOrNull() ?: 0,
                     maxMessageChars = maxChars.toIntOrNull() ?: 0,

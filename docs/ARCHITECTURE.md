@@ -1,39 +1,41 @@
-# Architecture (decision record, Milestone 1)
-
-Status legend: **Decided** = design choice; **To verify** = needs a build/device test.
+# Architecture (current state)
 
 ```
-Client ─HTTPS─▶ Cloudflare edge ─▶ cloudflared (child process of the app)
-                                        │  http://127.0.0.1:<port>
+Client ─HTTPS─▶ Cloudflare edge ─▶ cloudflared (child process, run from the app's native-lib dir)
+                                        │ http://127.0.0.1:8080
                                         ▼
-                     SimBridge API (loopback only) ─▶ MessageService
-                                                       ├─ Room (history)
-                                                       └─ SmsSender ─▶ SmsManager ─▶ SIM
+        Ktor CIO server (loopback only) ── auth ─▶ MessageService ─┬─ Room (history, idempotency)
+                                                                    └─ SmsSender ─▶ SmsManager ─▶ SIM
+GatewayService (foreground, type specialUse) owns: API server lifecycle, tunnel lifecycle, notification, public-URL probe
 ```
 
-## Layers and boundaries
-- `ui/` Compose screens, ViewModels. Depends on domain interfaces only.
-- `api/` HTTP server, routes, auth, rate limiting. Depends on `MessageService` and `TunnelStatusProvider` interfaces — never on cloudflared.
-- `sms/` `SmsSender` interface + `AndroidSmsSender`. Tests use `FakeSmsSender`.
-- `tunnel/` `TunnelManager` interface (+ `CloudflaredTunnelManager`, `NoopTunnelManager`). Only this package knows about processes, binaries, ABIs.
-- `data/` Room, repositories, settings.
-- `security/` key generation, Keystore wrapping, redaction.
-- `service/` foreground service owning server (and tunnel) lifecycle.
-
-## Decisions
-| Topic | Decision | Notes |
+## Packages (`in.imdevops.simbridge`)
+| Package | Responsibility | Android-free? |
 |---|---|---|
-| Package | `in.imdevops.simbridge` (as requested) | `in` is a Kotlin keyword → `package \`in\`.imdevops.simbridge` and every import needs backticks. Works, but is awkward; changing before the first commit is cheap (e.g. `app.imdevops.simbridge`). Your call. |
-| minSdk | **26** (proposal) | Notification channels, `startForegroundService`; `SmsManager` per-subscription APIs exist from 22, `getSystemService(SmsManager)` from 31 (use compat path below). Poco C51 expected to be API 33 (**verify** via adb). |
-| SMS API | `SmsManager.createForSubscriptionId` (API 31+) / `getSmsManagerForSubscriptionId` (22–30, deprecated, documented) | Explicit SIM selection via `SubscriptionManager` (needs READ_PHONE_STATE) |
-| HTTP server | **Ktor server (CIO engine)** — proposal | Maintained by JetBrains; supports bind host, timeouts. NanoHTTPD 2.3.1 is effectively unmaintained. Final choice and exact version are made in Milestone 2 after checking Maven Central and a loopback test on-device — **To verify** |
-| Bind address | `127.0.0.1` only | Tunnel origin = `http://127.0.0.1:<port>`; nothing on the LAN |
-| DB | Room, body stored only until retention expires | Bodies redacted/trimmed in logs |
-| Secrets | API key shown once, stored as hash; tunnel token encrypted with an Android Keystore AES-GCM key | **To verify** on device |
-| FGS type | Candidate: `specialUse` or `dataSync` | Android 15+ limits `dataSync` runtime (~6 h/24 h) when targeting SDK 35+. Re-check current docs in Milestone 6 before choosing — **To verify** |
-| Tunnel | Child process of an upstream cloudflared binary executed from `nativeLibraryDir`, token via environment variable if supported | **To verify** (Milestone 5 PoC) |
-| Message states | `QUEUED → SUBMITTING → SENT \| FAILED`, then `DELIVERED \| DELIVERY_FAILED` | `SENT` = radio accepted the submission; `DELIVERED` = network receipt. They are separate events. |
-| Retries | None automatic in v1 | Prevents duplicate SMS after ambiguous failures |
+| `api` | Routes, auth, `FailedAuthThrottle`, request parser, JSON helpers, `ServerState` | Mostly (only `SendRequestParser` needs `org.json`) |
+| `sms` | `MessageService`, state machine (`SmsReducer`), `RatePolicy`, `DestinationPolicy`, SIM resolution, stores, `AndroidSmsSender`, `SmsResultReceiver` | Core logic yes; `Android*` classes no |
+| `data` | Room database (v2), DAOs, `RoomMessageStore`, `RoomIdempotencyStore` | No |
+| `security` | `ApiKeys` (generation, hashing, bearer parsing), `ApiKeyStore` | `ApiKeys` yes |
+| `tunnel` | `TunnelManager` interface, `CloudflaredTunnelManager`, ELF/arch check, log parser, token vault (Keystore), update checker | Parsing/validation yes |
+| `service` | `GatewayService`, `BootReceiver`, `GatewayPrefs`, `RestartGuard`, `NotificationText` | `RestartGuard`, `NotificationText` yes |
+| `ui` | Compose theme, 5 tabs, cards | No |
 
-## Public API contract (target)
-`/api/v1/health`, `/info`, `POST /messages`, `GET /messages/{id}`, `GET /messages`, `GET /tunnel/status`. Bearer auth on everything except a minimal health response. Details in `docs/API.md` (Milestone 2/4).
+The API layer depends on the `MessageService` and tunnel *status* only; nothing outside `tunnel` knows about processes, binaries or ABIs.
+
+## Decisions (V = verified on the target phone, S = verified from sources/docs, U = still unverified)
+| Topic | Decision | Status |
+|---|---|---|
+| Package name | `in.imdevops.simbridge` (needs backticks in Kotlin because `in` is a keyword) | V (builds) |
+| minSdk / target | 26 / 37 | V |
+| HTTP server | Ktor CIO 3.6.0, bound to `127.0.0.1` | V |
+| Auth | 256-bit random key, SHA-256 hash stored, constant-time hash compare | V |
+| Persistence | Room 2.8.5 + KSP 2.3.10; text never stored; 30-day retention | V |
+| SMS states | `QUEUED→SUBMITTING→SENT\|FAILED`, then `DELIVERED\|DELIVERY_FAILED` | V (SENT); delivery depends on carrier |
+| Limits | Derived from persisted history (restart-proof); serialized sends; max 16 pending | V (429); S (tests) |
+| Idempotency | Persisted 24 h; reserve-then-complete so concurrent duplicates send once | S (concurrency test passes); replay path not yet reported from device |
+| Destination control | Built-in premium/satellite prefix block + owner allow-list | S (unit tests); U on device |
+| Tunnel | Upstream `cloudflared-linux-arm` 2026.10.4 (hash verified), executed from `nativeLibraryDir` | V |
+| Tunnel DNS | resolv.conf fed via stdin; binary optionally patched (`-PatchResolv`) | V that tunnel works; U which variant was used |
+| Foreground service type | `specialUse` (Android 15 limits `dataSync` to ~6 h per 24 h) | S (Android docs); V runs |
+| Updating cloudflared | Rebuild only. App cannot run downloaded executables | S |
+| Loop guard | ≤3 automatic restarts per 10 min, no auto-restart of a failed tunnel | S (unit test) |

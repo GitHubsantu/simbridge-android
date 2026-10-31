@@ -36,9 +36,3 @@ class GatewayPrefs(context: Context) {
         prefs.edit().putString("events", (events() + line).takeLast(40).joinToString("\n")).apply()
     }
 }
-
-/** Stops Android and us from restarting the service in an endless loop. */
-object RestartGuard {
-    fun allow(stamps: List<Long>, now: Long, maxRestarts: Int = 3, windowMillis: Long = 10 * 60_000L): Boolean =
-        stamps.count { it > now - windowMillis } < maxRestarts
-}
