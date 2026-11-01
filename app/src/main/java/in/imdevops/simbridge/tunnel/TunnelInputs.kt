@@ -18,11 +18,17 @@ object DnsConfig {
     private val IPV4 = Regex("^(25[0-5]|2[0-4]\\d|1?\\d?\\d)(\\.(25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}$")
     val FALLBACK = listOf("1.1.1.1", "8.8.8.8")
 
-    /** resolv.conf text from the phone's DNS servers (IPv4 only), falling back to public resolvers. */
-    fun resolvConf(systemServers: List<String>): String {
-        val servers = systemServers.filter { IPV4.matches(it) }.distinct().take(3).ifEmpty { FALLBACK }
-        return servers.joinToString("\n") { "nameserver $it" } + "\n"
-    }
+    /**
+     * The phone's own IPv4 DNS servers first, then public resolvers as a safety net, so a carrier DNS that
+     * drops SRV lookups or cannot be reached does not stop the tunnel from starting.
+     */
+    fun servers(systemServers: List<String>): List<String> =
+        (systemServers.filter { IPV4.matches(it) }.distinct().take(3) + FALLBACK).distinct()
+
+    fun render(servers: List<String>): String =
+        servers.joinToString("\n") { "nameserver $it" } + "\noptions timeout:3 attempts:2\n"
+
+    fun resolvConf(systemServers: List<String>): String = render(servers(systemServers))
 }
 
 object RemoteProbeRules {

@@ -33,6 +33,7 @@ class CloudflaredTunnelManager(
     private val lock = Mutex()
     private var process: Process? = null
     @Volatile private var stopping = false
+    @Volatile private var patchState = DnsPatchState.UNKNOWN
 
     private val _state = MutableStateFlow<TunnelState>(TunnelState.Stopped)
     override val state: StateFlow<TunnelState> = _state.asStateFlow()
@@ -72,7 +73,9 @@ class CloudflaredTunnelManager(
                 p.destroyForcibly()
                 return@withContext ProbeResult(null, "", "Timed out after 10 s")
             }
-            ProbeResult(p.exitValue(), p.inputStream.bufferedReader().readText().take(400).trim(), null)
+            val version = p.inputStream.bufferedReader().readText().take(400).trim()
+            val dns = DnsDiagnostics.describe(DnsDiagnostics.patchState(binary()))
+            ProbeResult(p.exitValue(), "$version\nDNS: $dns", null)
         } catch (e: IOException) {
             // Typical messages: "error=2, No such file or directory", "error=13, Permission denied".
             ProbeResult(null, "", e.message ?: e.javaClass.simpleName)
@@ -93,7 +96,11 @@ class CloudflaredTunnelManager(
             val tracker = TunnelTracker()
             try {
                 val dir = File(appContext.filesDir, "cloudflared").apply { mkdirs() }
-                val resolv = File(dir, "resolv.conf").apply { writeText(DnsConfig.resolvConf(systemDns())) }
+                val servers = DnsConfig.servers(systemDns())
+                patchState = DnsDiagnostics.patchState(binary())
+                appendLog("DNS: this cloudflared binary is ${DnsDiagnostics.describe(patchState)}")
+                appendLog("DNS servers given to cloudflared: ${servers.joinToString(", ")}")
+                val resolv = File(dir, "resolv.conf").apply { writeText(DnsConfig.render(servers)) }
                 val pb = ProcessBuilder(
                     binary().absolutePath, "tunnel", "--no-autoupdate", "--edge-ip-version", "4",
                     "--protocol", "http2", "run",
@@ -118,6 +125,10 @@ class CloudflaredTunnelManager(
         }
     } }
 
+    private fun appendLog(line: String) {
+        _logs.value = (_logs.value + line).takeLast(MAX_LOG_LINES)
+    }
+
     private fun pump(p: Process, tracker: TunnelTracker, secrets: List<String>) {
         try {
             p.inputStream.bufferedReader().forEachLine { raw ->
@@ -132,8 +143,16 @@ class CloudflaredTunnelManager(
         if (stopping) {
             _state.value = TunnelState.Stopped
         } else {
+            val dnsFailed = tracker.hint?.contains("DNS") == true
+            val extra = when {
+                dnsFailed && patchState == DnsPatchState.UNPATCHED ->
+                    " This cloudflared binary is NOT patched for Android DNS: run tools\\fetch-cloudflared.ps1 -PatchResolv, rebuild and reinstall."
+                dnsFailed && patchState == DnsPatchState.PATCHED ->
+                    " The binary is patched, so the DNS servers it used (see the log) are probably unreachable: check Private DNS, VPN or the network."
+                else -> ""
+            }
             _state.value = TunnelState.Failed(
-                tracker.failureReason(exit),
+                tracker.failureReason(exit) + extra,
                 retryable = tracker.hint?.contains("token") != true,
             )
         }

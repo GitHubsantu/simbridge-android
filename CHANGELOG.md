@@ -2,6 +2,20 @@
 
 All notable changes to SimBridge Gateway. Versions follow `versionName` in `app/build.gradle.kts`; `versionCode` must increase with every release that is meant to update an installed copy.
 
+## 1.1.1 (versionCode 3)
+
+### Fixed
+- Tunnel DNS on Android: the release now bundles cloudflared patched to read its DNS servers from stdin (both 32-bit and 64-bit builds). 1.1 shipped an unpatched binary, so on phones where DNS lookups failed the tunnel could not start (`Couldn't resolve SRV record ... 127.0.0.1:53`).
+
+### Added
+- DNS diagnostics: *Tunnel → Check cloudflared binary* shows whether the binary is patched, the log starts with the patch state and the DNS servers handed to cloudflared, and a DNS failure now says what to do.
+- `tools\check-cloudflared-patch.ps1` checks the binaries in `jniLibs` and inside an APK.
+- Public DNS servers (1.1.1.1, 8.8.8.8) are always added after the phone's own DNS servers, with `timeout:3 attempts:2`.
+
+### Upgrading
+- From 1.1: *Diagnostics → App update → Check for update* (the first release that can be installed through the updater).
+- From 1.0: install by hand once.
+
 ## 1.1 (versionCode 2)
 
 ### Added

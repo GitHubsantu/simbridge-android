@@ -105,8 +105,13 @@ class TunnelInputsTest {
     }
 
     @Test fun resolvConf() {
-        assertEquals("nameserver 192.168.1.1\nnameserver 8.8.4.4\n", DnsConfig.resolvConf(listOf("192.168.1.1", "fe80::1", "8.8.4.4", "192.168.1.1")))
-        assertEquals("nameserver 1.1.1.1\nnameserver 8.8.8.8\n", DnsConfig.resolvConf(listOf("fe80::1", "garbage")))
+        assertEquals(
+            "nameserver 192.168.1.1\nnameserver 8.8.4.4\nnameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:3 attempts:2\n",
+            DnsConfig.resolvConf(listOf("192.168.1.1", "fe80::1", "8.8.4.4", "192.168.1.1")),
+        )
+        assertEquals("nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:3 attempts:2\n", DnsConfig.resolvConf(listOf("fe80::1", "garbage")))
+        // the public fallback is added once, after the phone's own servers
+        assertEquals(listOf("8.8.8.8", "1.1.1.1"), DnsConfig.servers(listOf("8.8.8.8")))
     }
 
     @Test fun remoteProbeClassification() {
