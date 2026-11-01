@@ -19,6 +19,11 @@ class GatewayPrefs(context: Context) {
         get() = prefs.getBoolean("start_tunnel", true)
         set(v) { prefs.edit().putBoolean("start_tunnel", v).apply() }
 
+    /** Set just before an in-app update so the gateway comes back after Android replaces the app. */
+    var resumeAfterUpdate: Boolean
+        get() = prefs.getBoolean("resume_after_update", false)
+        set(v) { prefs.edit().putBoolean("resume_after_update", v).commit() }
+
     fun restartStamps(): List<Long> =
         prefs.getString("restarts", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
 

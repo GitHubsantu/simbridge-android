@@ -6,12 +6,14 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import `in`.imdevops.simbridge.SimBridgeApplication
 
-/** Restarts the gateway after a reboot or app update, only if the user switched "Start after reboot" on. */
+/** Restarts the gateway after a reboot or app update if the user switched "Start after reboot" on, or after an in-app update that was started while the gateway was running. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val prefs = (context.applicationContext as SimBridgeApplication).gatewayPrefs
-        if (!prefs.autostartOnBoot) return
+        val resumeAfterUpdate = intent.action == Intent.ACTION_MY_PACKAGE_REPLACED && prefs.resumeAfterUpdate
+        if (resumeAfterUpdate) prefs.resumeAfterUpdate = false
+        if (!prefs.autostartOnBoot && !resumeAfterUpdate) return
         val now = System.currentTimeMillis()
         try {
             ContextCompat.startForegroundService(context, GatewayService.startIntent(context))

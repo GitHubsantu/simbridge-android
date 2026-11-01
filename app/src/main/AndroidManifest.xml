@@ -15,6 +15,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Only used if you switch on "Start after reboot". -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Lets the in-app updater hand a checksum- and signature-verified APK to Android's installer (the user still confirms). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Send SMS through the SIM. Nothing else (no READ_SMS / RECEIVE_SMS / contacts) is needed. -->
     <uses-permission android:name="android.permission.SEND_SMS" />
@@ -69,6 +71,11 @@
 
         <receiver
             android:name=".sms.SmsResultReceiver"
+            android:exported="false" />
+
+        <!-- Gets the Android installer's result for an in-app update. -->
+        <receiver
+            android:name=".update.UpdateStatusReceiver"
             android:exported="false" />
     </application>
 

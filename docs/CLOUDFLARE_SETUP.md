@@ -3,12 +3,12 @@
 Status legend: **Verified** = observed on the phone or checked against a source; **Unverified** = written from documentation/knowledge and still to be proven on your phone.
 
 ## 32-bit and 64-bit phones
-`tools\fetch-cloudflared.ps1` installs **both** upstream builds by default (`-Abi arm`, `-Abi arm64` or `-Abi both`), each checked against Cloudflare's published SHA-256 for the pinned version. The universal APK runs on either kind of phone: Android extracts the matching binary into the app's native-library folder, and the app checks the file's real architecture against the phone before running it. The 32-bit and 64-bit APKs contain only their own binary (about 27 MB each; the universal APK is about 45 MB). x86/x86_64 devices and emulators are not supported (no binary is bundled for them).
+`tools\fetch-cloudflared.ps1` installs **both** upstream builds by default (`-Abi arm`, `-Abi arm64` or `-Abi both`). Since 1.1 it fetches the **latest** upstream release unless you pin one with `-Version 2026.10.4`. Each file is checked against the SHA-256 in Cloudflare's release notes and/or GitHub's own asset digest; when both exist they must agree, and with no published checksum nothing is installed. The universal APK runs on either kind of phone: Android extracts the matching binary into the app's native-library folder, and the app checks the file's real architecture against the phone before running it. The 32-bit and 64-bit APKs contain only their own binary (about 27 MB each; the universal APK is about 45 MB). x86/x86_64 devices and emulators are not supported (no binary is bundled for them).
 
-**Verified:** the 2026.10.4 `cloudflared-linux-arm64` download has SHA-256 `2b7203b4fb0ba28a0c1e12f8855ce2c25f76d266a8d5edafac5540b6812acff6`, identical to Cloudflare's published value; it is an AArch64 ELF with exactly one `/etc/resolv.conf` string, so `-PatchResolv` applies the same way. **Device-verified by the project owner:** the arm64 build works on a 64-bit phone. The 32-bit build is verified on the Poco C51.
+**Verified for 2026.10.4 (the version shipped in 1.0):** the `cloudflared-linux-arm64` download has SHA-256 `2b7203b4fb0ba28a0c1e12f8855ce2c25f76d266a8d5edafac5540b6812acff6`, identical to Cloudflare's published value; it is an AArch64 ELF with exactly one `/etc/resolv.conf` string, so `-PatchResolv` applies the same way. **Device-verified by the project owner:** the arm64 build works on a 64-bit phone. The 32-bit build is verified on the Poco C51.
 
 ## Why the Poco C51 needs the 32-bit binary
-Your phone reports `zygote32`, ABIs `armeabi-v7a,armeabi`. Upstream publishes `cloudflared-linux-arm` (32-bit ARM, static). **Verified:** release `2026.10.4` of that asset has SHA-256 `f29b44e97ec18dd2971dfdd9bad0c6d460aaa78223b91b186219f02135c08d8c`, which matches the value Cloudflare lists in that release's notes; its ELF header is 32-bit ARM. Newer tags may exist; pin only versions whose published checksum you have compared.
+Your phone reports `zygote32`, ABIs `armeabi-v7a,armeabi`. Upstream publishes `cloudflared-linux-arm` (32-bit ARM, static). **Verified for 2026.10.4:** that release's asset has SHA-256 `f29b44e97ec18dd2971dfdd9bad0c6d460aaa78223b91b186219f02135c08d8c`, which matches the value Cloudflare lists in that release's notes; its ELF header is 32-bit ARM. Newer tags may exist; pin only versions whose published checksum you have compared.
 
 ## Step 1 — Prove the binary runs (no Cloudflare account needed)
 ```powershell
@@ -20,7 +20,7 @@ The script refuses to install anything whose SHA-256 differs from the pinned val
 
 | Result | Meaning |
 |---|---|
-| `Binary: OK (ARM, 32-bit)` (or `64-bit`) and `Ran OK (exit 0): cloudflared version 2026.10.4 …` | The binary is the right architecture and executes |
+| `Binary: OK (ARM, 32-bit)` (or `64-bit`) and `Ran OK (exit 0): cloudflared version <the bundled version> …` | The binary is the right architecture and executes |
 | `MISSING` | the file was not packaged: re-run the script, rebuild, reinstall. With a release APK, you may have installed the wrong ABI build |
 | `WRONG_ARCH` | wrong build for this phone (this is what caused the original `error=2`) |
 | `Run failed: … error=13 Permission denied` | Android refused to execute it: report the exact text |
@@ -32,7 +32,7 @@ The script refuses to install anything whose SHA-256 differs from the pinned val
 3. **Public hostname:** subdomain `sms-api`, domain `YOURDOMAIN.com`, service **HTTP**, URL **`127.0.0.1:8080`**. This is the only service the tunnel exposes.
 
 ## Step 3 — Connect
-In the app: enter `sms-api.YOURDOMAIN.com`, paste the token, **Save hostname / token** (token is encrypted with an Android Keystore key and never shown again), then **Start tunnel**. Also start the HTTP server.
+In the app: enter `sms-api.YOURDOMAIN.com`, paste the token, **Save hostname / token** (token is encrypted with an Android Keystore key and never shown again), then **Start tunnel**. Since 1.1 this starts the gateway foreground service as well (API server, tunnel and a persistent status notification), so you do not have to start the HTTP server separately.
 
 **Unverified:** passing the token through the `TUNNEL_TOKEN` environment variable on every phone/OEM. If the log says the token is missing/invalid although it is correct, report it; the fallback is the `--token` argument.
 
@@ -59,8 +59,13 @@ A WAF rate-limiting rule on `sms-api.YOURDOMAIN.com`, and ideally Cloudflare Acc
 cloudflared is Cloudflare's software, licensed under Apache-2.0 (verified from the upstream `LICENSE` file; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)). The binary is fetched at build time and is git-ignored, never committed. Release APKs contain it, so the Apache-2.0 text ships in the repository under `licenses/`.
 
 ## Updating cloudflared
-**The app cannot update the binary by itself — by design.** Android only lets an app execute files that were installed with the APK (the read-only native-library folder). Downloading a new binary into app storage and running it is blocked on current Android; the reference project only did it by setting the app's target SDK to 28, which weakens security and is not acceptable here.
+**The app cannot download and run a new cloudflared by itself, by design.** Android only lets an app execute files that were installed with the APK (the read-only native-library folder). Downloading a new binary into app storage and running it is blocked on current Android; the reference project only did it by setting the app's target SDK to 28, which weakens security and is not acceptable here.
 
-What the app does: the Tunnel tab shows the bundled version (from `--version`) and a **Check for newer release** button that asks GitHub for the latest upstream tag and compares it. This is informational only and sends no data about you.
+What the app does: the Tunnel tab shows the bundled version (from `--version`) and a **Check for newer release** button that asks GitHub for the latest upstream tag and compares it. This is informational only and sends no data about you. Since 1.1 the app can also update *itself*: **Diagnostics → App update** installs a new SimBridge APK (which contains the new cloudflared) after checking its SHA-256 and signing key.
 
-To update: open the new release page, copy the SHA-256 listed for **both** `cloudflared-linux-arm` and `cloudflared-linux-arm64`, put the version and hashes into `tools/fetch-cloudflared.ps1`, run it, rebuild and reinstall (and bump `versionCode`/`versionName` for a new release). The script refuses any file whose hash does not match. Read hashes from the official release page of that exact tag, and compare them with a second source where you can: third-party mirrors have been seen to list different or garbled values.
+To ship a new cloudflared:
+1. Run `powershell -ExecutionPolicy Bypass -File tools\fetch-cloudflared.ps1` (latest) or add `-Version <tag>` to pin one. Use the same `-PatchResolv` choice as before. Note the line `Using cloudflared <version>`.
+2. Bump `versionCode` and `versionName` in `app\build.gradle.kts`, build the release, and publish it with the version named in the release notes (see [RELEASE.md](RELEASE.md)).
+3. Phones update by hand or through the in-app update.
+
+The script reads checksums from the official release of that exact tag and refuses a file that does not match. Compare with a second source where you can: third-party mirrors have been seen to list different or garbled values.

@@ -20,22 +20,31 @@ A phone that can send SMS on demand is a cost- and abuse-sensitive endpoint. **A
 | No automatic SMS retry | Implemented by design |
 | No CORS headers; no wildcard | Implemented (none sent) |
 | Message text never stored; recipients kept 30 days | Implemented |
-| Minimal permissions: SEND_SMS, READ_PHONE_STATE, INTERNET, ACCESS_NETWORK_STATE (DNS servers for the tunnel), FOREGROUND_SERVICE (+SPECIAL_USE), POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED (only acts if "Start after reboot" is on) | Implemented. No READ_SMS/RECEIVE_SMS/contacts |
+| Minimal permissions: SEND_SMS, READ_PHONE_STATE, INTERNET, ACCESS_NETWORK_STATE (DNS servers for the tunnel), FOREGROUND_SERVICE (+SPECIAL_USE), POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED (only acts if "Start after reboot" is on), REQUEST_INSTALL_PACKAGES (1.1: only to hand a verified update to Android's installer) | Implemented. No READ_SMS/RECEIVE_SMS/contacts |
 | `allowBackup=false` | Implemented |
 | IP allow-listing | **Not implemented.** Origin is always loopback, so the source IP would be cloudflared, not the caller; use Cloudflare Access / WAF rules instead |
 | Tunnel token encrypted with an Android Keystore AES-GCM key; passed to cloudflared via environment, not argv; log lines redacted | Implemented, device-tested end to end. Same-UID processes could still read the environment |
 | API key stored hashed (not Keystore-wrapped) | Acceptable: nothing secret to protect; revisit if keys become retrievable |
-| Update check | Outbound HTTPS GET to api.github.com only when you press the button; no identifiers sent | Implemented |
+| Update checks | Outbound HTTPS to api.github.com (and, for an app update, to this repository's release downloads) only when you press a button; the only identifier sent is the User-Agent `SimBridge-Gateway` (plus your IP address, as with any request) | Implemented |
+| App update integrity (1.1) | Download must match `SHA256SUMS.txt` from the same release; the APK's signing certificate must equal the installed app's; downloads are accepted only from `https://github.com/GitHubsantu/simbridge-android/releases/download/`; Android's installer performs the final signature check | Implemented, unit-tested for the pure logic (version compare, APK pick, checksum parse). **Not yet run end to end on a device** |
 | Battery-optimization exemption (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) | Optional, user-confirmed system dialog. Google Play restricts this permission; fine for sideloaded builds, revisit before any store release |
 | TLS | Provided by Cloudflare at the edge; loopback hop is plain HTTP by design |
 | Release APK integrity | Signed with APK Signature Schemes v1+v2+v3; SHA-256 of every APK published in `SHA256SUMS.txt`; signing-certificate fingerprint published in the release notes |
 
 Operational advice: generate a fresh key when moving from testing to real use; never paste keys into chats or commits; add a Cloudflare WAF rate-limit rule and optionally Cloudflare Access service tokens in front of `sms-api.YOURDOMAIN.com`; send only to recipients who have consented, and respect your carrier's SMS terms and local messaging law.
 
+### Update trust model (1.1)
+The in-app updater checks three things, and they protect against different problems:
+1. **SHA-256 from `SHA256SUMS.txt`**: catches a damaged or mismatched download. The sums file comes from the same GitHub release as the APK, so on its own it does **not** protect against someone who can edit that release.
+2. **Same signing key as the installed app** (checked by SimBridge, and again by Android when installing): this is the real protection. Only whoever holds your `.jks` can produce an APK that installs over SimBridge.
+3. **Android's installer** performs the install. SimBridge asks Android (12 and newer) not to require user action; Android may then apply the update without showing its confirmation screen in some cases, for example when SimBridge itself installed the previous version. Do not treat the confirmation as a guaranteed security control.
+
+So the keys to protect are your `.jks` and `keystore.properties` (offline backup, never in git) and your GitHub account (use two-factor authentication). Anyone who controls both the release and the signing key can ship code to every phone that presses *Update*.
+
 ### Verifying a download
 ```powershell
-Get-FileHash .\SimBridge-1.0-64bit.apk -Algorithm SHA256        # must equal the line in SHA256SUMS.txt
-& "<sdk>\build-tools\<ver>\apksigner.bat" verify --print-certs .\SimBridge-1.0-64bit.apk   # certificate SHA-256 must equal the one in the release notes
+Get-FileHash .\SimBridge-1.1-v8a-64bit.apk -Algorithm SHA256        # must equal the line in SHA256SUMS.txt
+& "<sdk>\build-tools\<ver>\apksigner.bat" verify --print-certs .\SimBridge-1.1-v8a-64bit.apk   # certificate SHA-256 must equal the one in the release notes
 ```
 A matching hash proves the file is the one that was uploaded. A matching certificate fingerprint proves it was signed by the same key as previous releases, which is what lets Android accept it as an update.
 
@@ -54,7 +63,7 @@ Scope: every file in `app/src/main`, the manifest, build files, and the reposito
 | 5 | Test method returned a value (JUnit would refuse to run it) | Test quality | Fixed; the local runner now enforces void return |
 
 ## Audit results (no change needed)
-- **Exported components:** `MainActivity` (launcher, required), `BootReceiver` (system broadcasts only, acts only if you enabled it). `GatewayService` and `SmsResultReceiver` are **not exported**; SMS callback PendingIntents are explicit and `FLAG_IMMUTABLE`. No ContentProvider, WebView or FileProvider.
+- **Exported components:** `MainActivity` (launcher, required), `BootReceiver` (system broadcasts only, acts only if you enabled it or an in-app update was started while the gateway ran). `GatewayService`, `SmsResultReceiver` and (1.1) `UpdateStatusReceiver` are **not exported**; SMS callback PendingIntents are explicit and `FLAG_IMMUTABLE`. No ContentProvider, WebView or FileProvider.
 - **Authentication:** every route requires the key; no unauthenticated endpoint exists (tests: 401 on missing/wrong key for each route, no sender call without auth). Same body for all auth failures.
 - **Injection:** Room uses bound parameters; message id and Idempotency-Key are matched against strict regexes; JSON fields are type-checked; numbers must be strict E.164.
 - **Secrets:** no `Log`/`println`/stack-trace output anywhere in app code; no keystores, `.env` or token files tracked; the only token-looking string is a fake in a unit test. The tunnel token is Keystore-encrypted at rest, passed to cloudflared via environment (not argv) and redacted from displayed logs.
@@ -71,6 +80,7 @@ Scope: every file in `app/src/main`, the manifest, build files, and the reposito
 - Dependency CVE scanning was **not** run (no access to advisory databases from the build sandbox). Run `.\gradlew.bat dependencies` and a scanner of your choice (for example OWASP Dependency-Check) before wider distribution.
 - `-PatchResolv` replaces one string in the cloudflared binary; the installed file is then not byte-identical to Cloudflare's release.
 - Cloudflare-side protection (WAF rate limiting, Cloudflare Access) is **your** configuration and was not inspected.
+- **In-app update (1.1):** not yet run end to end on a phone; the repository path is fixed in the app (`AppUpdater.REPO`), so a fork must change it; the updater relies on GitHub's "latest release" and on the repository being public; `REQUEST_INSTALL_PACKAGES` is a permission Google Play restricts (fine for sideloading, revisit before any store release).
 - Ktor route tests (`ApiRoutesTest`) and Room/instrumented tests could not be run in the build sandbox; run them with Gradle.
 
 ## Checks only you can run on the phone/PC
@@ -89,6 +99,7 @@ Scope: every file in `app/src/main`, the manifest, build files, and the reposito
 6. **Key screenshot block:** generate a key and try to take a screenshot (should be blocked or black).
 7. **Backup flags:** `adb shell dumpsys package in.imdevops.simbridge | findstr /i "allowBackup debuggable"` (expect `ALLOW_BACKUP` absent; `DEBUGGABLE` present on a debug build only, absent on a release build).
 8. **Cloudflare dashboard:** add a WAF rate-limiting rule for `sms-api.YOURDOMAIN.com`, and consider Cloudflare Access with a service token.
+9. **App update (1.1):** with a release newer than the installed version published, run *Diagnostics → App update → Check for update → Download and verify → Install now*. Then confirm: the version changed, the API key hash, token and history are still there, the gateway restarted if it was running, and *Service events* show "Update installed".
 
 ## Addendum — release signing and repository hygiene
 - **Found and fixed:** the repository's `.gitignore` had no rule for `*.jks`, `*.keystore`, `keystore.properties`, `.env` or `*.token`. Added, together with `dist/`.

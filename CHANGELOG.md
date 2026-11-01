@@ -2,6 +2,26 @@
 
 All notable changes to SimBridge Gateway. Versions follow `versionName` in `app/build.gradle.kts`; `versionCode` must increase with every release that is meant to update an installed copy.
 
+## 1.1 (versionCode 2)
+
+### Added
+- **In-app update** (*Diagnostics → App update*). A manual check against this repository's latest GitHub release; the APK for the phone is downloaded, must match `SHA256SUMS.txt` and be signed with the same key as the installed app, and is then handed to Android's installer. Nothing contacts GitHub until the button is pressed. The gateway restarts after the update if it was running (`resumeAfterUpdate`).
+- New permission `REQUEST_INSTALL_PACKAGES` (only used for the hand-off to Android's installer) and a non-exported `UpdateStatusReceiver`.
+- Unit tests for the updater's pure logic (`AppUpdaterTest`): version comparison, APK selection, checksum-file parsing, UTF-16/BOM handling.
+- `tools\make-release.ps1`: checks the three APKs of a version, verifies signature schemes v1, v2 and v3 with `apksigner`, writes `SHA256SUMS.txt` and fills in the release notes.
+
+### Changed
+- **Start tunnel** now goes through the foreground service, so the tunnel keeps running in the background with the status notification. The outdated "background service comes in Milestone 6" text is gone.
+- Release APK names now include the ABI: `SimBridge-<version>-v7a-32bit.apk`, `-v8a-64bit.apk`, `-universal.apk`. The updater matches on the `-32bit.apk` / `-64bit.apk` / `-universal.apk` endings and on `SHA256SUMS.txt`.
+- `tools\fetch-cloudflared.ps1` fetches the **latest** upstream cloudflared by default (pin one with `-Version`). A file is installed only if its SHA-256 matches Cloudflare's release notes and/or GitHub's asset digest; if both exist they must agree. The bundled version is shown on the Tunnel tab and in the release notes.
+
+### Upgrading
+- From 1.0: install the 1.1 APK over the old app once by hand (same signing key, data is kept). 1.0 has no updater.
+- A debug build or a build signed with another key must be uninstalled first.
+
+### Not yet verified
+- The in-app update on a real phone. It needs a release newer than the installed version, so the first real run is the update after 1.1.
+
 ## 1.0 (versionCode 1)
 
 First release.

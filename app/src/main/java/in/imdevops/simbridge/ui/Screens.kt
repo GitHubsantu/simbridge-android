@@ -258,6 +258,7 @@ fun DiagnosticsScreen(app: SimBridgeApplication, modifier: Modifier = Modifier) 
 
     ScrollColumn(modifier) {
         ScreenHeader("Diagnostics", "Background running, events and device facts")
+        AppUpdateCard(app)
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

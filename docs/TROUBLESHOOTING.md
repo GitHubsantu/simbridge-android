@@ -40,3 +40,19 @@
 | Script says "APKs will be UNSIGNED" | `keystore.properties` is missing from the project root |
 | `unexpected ABI folder lib/x86` | Harmless: dependency libraries for x86 inside the universal APK. See RELEASE.md to exclude them |
 | Gradle ignores a changed `keystore.properties` | Configuration cache: run `.\gradlew.bat assembleRelease --no-configuration-cache` once |
+
+## Updating inside the app (1.1)
+| Message / symptom | Likely cause / what to do |
+|---|---|
+| "No release has been published yet" | The repository has no published *latest* release, is private, or only has pre-releases/drafts. The updater needs a public repository and a normal release |
+| "GitHub answered HTTP 403" / other HTTP error | GitHub's unauthenticated rate limit or a network problem. Wait a few minutes and try again |
+| "The release has no APK for this phone" | The release lacks files ending in `-32bit.apk`, `-64bit.apk` or `-universal.apk` |
+| "This release has no SHA256SUMS.txt…" / "SHA256SUMS.txt has no entry for …" | The release was published without `SHA256SUMS.txt`, or a line does not match the APK's file name. Regenerate it with `tools\make-release.ps1` and re-upload |
+| "Checksum mismatch: the download is not the published file" | The download was damaged or the sums file belongs to another build. Try again; if it persists, the release assets are inconsistent |
+| "…signed with a different key than the installed app" | The installed copy is a debug build or was signed with another key. Uninstall it (this deletes its data) and install the release APK |
+| "Could not compare version …" | The release tag does not start with a number (use tags like `v1.1`) |
+| "Allow SimBridge to install apps on the next screen…" | Android's "install unknown apps" permission for SimBridge is off. Turn it on, go back, press *Install now* again |
+| Service events: "Update cancelled" or "Update failed (code N)" | You dismissed Android's screen, or Android refused the install (not enough storage, version downgrade, signature). The message after the code says why |
+| The gateway did not restart after an update | It was not running when you pressed *Install now* (nothing to resume), or Android blocked the background start. Start it from Home; check *Start after reboot / app update* and battery settings |
+| Update from 1.0 does not appear | Version 1.0 has no updater. Install 1.1 by hand once |
+

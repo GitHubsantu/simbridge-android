@@ -17,6 +17,7 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -163,9 +164,11 @@ class ApiRoutesTest {
     }
 
     @Test fun concurrentRequestsAreAllServed() = api {
-        val codes = (1..25).map {
-            async { client.get("/api/v1/health") { header(HttpHeaders.Authorization, "Bearer $key") }.status }
-        }.awaitAll()
+        val codes = coroutineScope {
+            (1..25).map {
+                async { client.get("/api/v1/health") { header(HttpHeaders.Authorization, "Bearer $key") }.status }
+            }.awaitAll()
+        }
         assertTrue(codes.all { it == HttpStatusCode.OK })
     }
 }

@@ -16,10 +16,11 @@ No root. No Termux. No separate server.
 ![Ktor](https://img.shields.io/badge/Ktor-3.6-087CFA?logo=ktor&logoColor=white&style=for-the-badge)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-Tunnel-F38020?logo=cloudflare&logoColor=white&style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
+[![Release](https://img.shields.io/github/v/release/GitHubsantu/simbridge-android?style=for-the-badge&label=Release)](https://github.com/GitHubsantu/simbridge-android/releases/latest)
 
 <br>
 
-[**⬇️ Download**](../../releases) · [**🚀 Quick start**](#-quick-start) · [**📖 API**](docs/API.md) · [**🌐 Cloudflare setup**](docs/CLOUDFLARE_SETUP.md) · [**🔒 Security**](docs/SECURITY.md)
+[**⬇️ Download**](https://github.com/GitHubsantu/simbridge-android/releases/latest) · [**🚀 Quick start**](#-quick-start) · [**📖 API**](docs/API.md) · [**🌐 Cloudflare setup**](docs/CLOUDFLARE_SETUP.md) · [**🔒 Security**](docs/SECURITY.md)
 
 </div>
 
@@ -37,10 +38,10 @@ No root. No Termux. No separate server.
   <tr>
     <td align="center"><img src="docs/img/api.png" width="200" alt="API"><br><sub><b>API</b><br>key, permissions, SIM, limits</sub></td>
     <td align="center"><img src="docs/img/tunnel.png" width="200" alt="Tunnel"><br><sub><b>Tunnel</b><br>Cloudflare hostname and token</sub></td>
-    <td align="center"><img src="docs/img/diagnostics.png" width="200" alt="Diagnostics"><br><sub><b>Diagnostics</b><br>background running and events</sub></td>
+    <td align="center"><img src="docs/img/diagnostics.png" width="200" alt="Diagnostics"><br><sub><b>Diagnostics</b><br>background running, events, app update</sub></td>
   </tr>
 </table>
-</div> 
+</div>
 
 *Phone numbers and the domain in these screenshots are masked.*
 
@@ -76,12 +77,12 @@ SMS only. Built with **Kotlin, Jetpack Compose, Room and Ktor**.
 ## 🚀 Quick start
 
 ### 1. Install
-Download the APK that matches your phone from the [**Releases page**](../../releases):
+Download the APK that matches your phone from the [**Releases page**](https://github.com/GitHubsantu/simbridge-android/releases/latest):
 
 | File | Use on |
 |---|---|
-| `SimBridge-<version>-32bit.apk` | 32-bit userspace phones (e.g. Poco C51, many Android Go devices) |
-| `SimBridge-<version>-64bit.apk` | 64-bit ARM phones (most modern phones) |
+| `SimBridge-<version>-v7a-32bit.apk` | 32-bit userspace phones (e.g. Poco C51, many Android Go devices) |
+| `SimBridge-<version>-v8a-64bit.apk` | 64-bit ARM phones (most modern phones) |
 | `SimBridge-<version>-universal.apk` | Any ARM phone, when unsure (larger) |
 
 <details>
@@ -91,7 +92,7 @@ With USB debugging on, run `adb shell getprop ro.zygote`: `zygote32` means the 3
 
 Check the file against `SHA256SUMS.txt` from the release page:
 ```powershell
-Get-FileHash .\SimBridge-1.0-64bit.apk -Algorithm SHA256
+Get-FileHash .\SimBridge-1.1-v8a-64bit.apk -Algorithm SHA256
 ```
 Install with `adb install -r <file>`, or open the APK on the phone and allow installs from your file manager or browser.
 </details>
@@ -125,6 +126,11 @@ curl.exe -H "Authorization: Bearer YOUR_API_KEY" https://sms-api.YOURDOMAIN.com/
 ```
 > **Tip:** "Tunnel connected" only means cloudflared registered. The URL test is the real proof. Add a Cloudflare WAF rate-limit rule, and ideally Cloudflare Access, in front of the hostname.
 
+### 5. Keep it updated
+- **From version 1.1:** open **Diagnostics → App update → Check for update**. The app reads this repository's latest release, downloads the APK for your phone, checks it against the published `SHA256SUMS.txt` and against its own signing key, then hands it to Android's installer. Nothing contacts GitHub until you press the button. Your API key hash, tunnel token and history are kept, and the gateway restarts after the update if it was running.
+- **From 1.0:** version 1.0 has no updater, so install the 1.1 APK over it once by hand (same signing key, nothing is lost). After that, updates run inside the app.
+- A debug build or a build signed with a different key cannot be updated this way; uninstall it first.
+
 ## 🔌 API at a glance
 
 | Method | Path | What it does |
@@ -147,6 +153,7 @@ Message lifecycle: `QUEUED → SUBMITTING → SENT | FAILED`, then `DELIVERED | 
 | Cloudflare Tunnel, 32-bit and 64-bit ARM | ✅ Verified end to end on both |
 | Foreground service, notification, 5-tab UI, event log | ✅ Used on device |
 | Signed release APKs (32-bit, 64-bit, universal) | ✅ Built by script; each APK proven to contain the checksum-verified `libcloudflared.so`; signed with v1 + v2 + v3 |
+| In-app update (1.1) | 🧪 Built with unit tests for version, APK and checksum handling; **not yet verified end to end on a phone** (needs a release newer than the installed one) |
 | RCS, MMS, receiving SMS, multiple API keys, bulk send | ❌ Not implemented |
 
 ## 🔒 Security in short
@@ -155,6 +162,7 @@ Message lifecycle: `QUEUED → SUBMITTING → SENT | FAILED`, then `DELIVERED | 
 - Failed-auth throttling, send limits that survive restarts, idempotency keys, bounded queue.
 - Premium and satellite prefixes blocked, plus your own country-prefix allow-list.
 - Tunnel token encrypted with an Android Keystore key; screenshots blocked while a new key is on screen.
+- In-app updates are manual, come only from this repository's releases, must match the published SHA-256 and be signed with the same key as the installed app, and still pass through Android's installer.
 - No automatic SMS retries, no CORS, backups disabled.
 
 Details and the full review log: [docs/SECURITY.md](docs/SECURITY.md). Found a problem? Please report it privately through **Security → Report a vulnerability**.
@@ -163,7 +171,8 @@ Details and the full review log: [docs/SECURITY.md](docs/SECURITY.md). Found a p
 - `SENT` ≠ `DELIVERED`. A `202` only means the request was accepted.
 - A foreground service raises the chance of running continuously but cannot guarantee it. Xiaomi/Poco and Android Go may stop apps: see [Troubleshooting](docs/TROUBLESHOOTING.md).
 - One shared API key, no per-client scopes. Rotate it if it ever leaves your hands.
-- The bundled `cloudflared` cannot be updated inside the app (Android forbids running downloaded executables). An update means a new pinned version, rebuild and reinstall.
+- The bundled `cloudflared` cannot be swapped on its own (Android forbids running downloaded executables). A new cloudflared means a new SimBridge release, installed by hand or through the in-app update, which replaces the whole APK.
+- In-app updates use the repository's *latest* release only (pre-releases and drafts are ignored) and need the repository to be public.
 - R8 minification is off for release builds. No dependency vulnerability scan has been run yet.
 - A release APK and a debug build use different signing keys. Switching between them means uninstalling first, which deletes the app's data.
 - Send only to people who consented, and follow your carrier's terms and local law.
@@ -189,7 +198,7 @@ The debug APK is **debuggable and signed with a debug key: for your own phone on
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\build-release.ps1
 ```
-It builds, checks that every APK contains the verified tunnel binary, and copies the files to `dist\`. Full guide: [docs/RELEASE.md](docs/RELEASE.md).
+It builds, checks that every APK contains the verified tunnel binary, and copies the files to `dist\`. `tools\make-release.ps1` then verifies the signatures, writes `SHA256SUMS.txt` and fills in the release notes. Full guide: [docs/RELEASE.md](docs/RELEASE.md).
 </details>
 
 ## 📚 Documentation

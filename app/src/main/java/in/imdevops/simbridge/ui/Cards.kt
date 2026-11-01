@@ -12,6 +12,7 @@ import `in`.imdevops.simbridge.tunnel.Hostnames
 import `in`.imdevops.simbridge.tunnel.TokenFormat
 import `in`.imdevops.simbridge.tunnel.TunnelState
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -49,6 +50,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import `in`.imdevops.simbridge.service.GatewayService
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -226,6 +230,11 @@ internal fun TunnelCard(app: SimBridgeApplication) {
     var hasToken by remember { mutableStateOf(app.tokenVault.hasToken()) }
     var note by remember { mutableStateOf<String?>(null) }
     var binaryReport by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val gatewayActive by app.gatewayActive.collectAsState()
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        startGatewayWithTunnel(context, app)
+    }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -289,10 +298,18 @@ internal fun TunnelCard(app: SimBridgeApplication) {
             Button(
                 enabled = running || hasToken,
                 onClick = {
-                    scope.launch {
-                        if (running) manager.stop()
-                        else app.tokenVault.load()?.let { manager.start(it) }
-                            ?: run { note = "Stored token could not be read; paste it again." }
+                    when {
+                        running -> scope.launch { manager.stop() }
+                        // Starting the tunnel must go through the foreground service, which owns the persistent notification.
+                        !gatewayActive ->
+                            if (Build.VERSION.SDK_INT >= 33 &&
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                            ) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            else startGatewayWithTunnel(context, app)
+                        else -> scope.launch {
+                            app.tokenVault.load()?.let { manager.start(it) }
+                                ?: run { note = "Stored token could not be read; paste it again." }
+                        }
                     }
                 },
             ) { Text(if (running) "Stop tunnel" else "Start tunnel") }
@@ -315,9 +332,14 @@ internal fun TunnelCard(app: SimBridgeApplication) {
                 }
             }
             Text(
-                "The tunnel runs only while this app process is alive. A background service comes in Milestone 6.",
+                "Starting the tunnel also starts the gateway service, which keeps it running in the background and shows a persistent status notification.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
     }
+}
+
+private fun startGatewayWithTunnel(context: Context, app: SimBridgeApplication) {
+    app.gatewayPrefs.startTunnelWithGateway = true
+    ContextCompat.startForegroundService(context, GatewayService.startIntent(context))
 }
