@@ -79,6 +79,6 @@ If the app's behavior changes in a way that affects your privacy, I will update 
 
 ## 12. Contact
 
-Questions or concerns: **YOUR_EMAIL_HERE**
+Questions or concerns: **founder@imdevops.in**
 
 Source code: [github.com/GitHubsantu/simbridge-android](https://github.com/GitHubsantu/simbridge-android)
