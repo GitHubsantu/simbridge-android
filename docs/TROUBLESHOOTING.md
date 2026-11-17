@@ -49,7 +49,7 @@
 | "The release has no APK for this phone" | The release lacks files ending in `-32bit.apk`, `-64bit.apk` or `-universal.apk` |
 | "This release has no SHA256SUMS.txt…" / "SHA256SUMS.txt has no entry for …" | The release was published without `SHA256SUMS.txt`, or a line does not match the APK's file name. Regenerate it with `tools\make-release.ps1` and re-upload |
 | "Checksum mismatch: the download is not the published file" | The download was damaged or the sums file belongs to another build. Try again; if it persists, the release assets are inconsistent |
-| "…signed with a different key than the installed app" | The installed copy is a debug build or was signed with another key. Uninstall it (this deletes its data) and install the release APK |
+| "...signed with a different key than the installed app" followed by two fingerprints | The two certificates really differ. A debug build or a build signed with another key is installed. Uninstall it (this deletes its data) and install the release APK | | "SimBridge could not pre-check the signing key (...)" | The phone could not read a certificate. The update can still be installed; Android refuses it if the key differs |
 | "Could not compare version …" | The release tag does not start with a number (use tags like `v1.1`) |
 | "Allow SimBridge to install apps on the next screen…" | Android's "install unknown apps" permission for SimBridge is off. Turn it on, go back, press *Install now* again |
 | Service events: "Update cancelled" or "Update failed (code N)" | You dismissed Android's screen, or Android refused the install (not enough storage, version downgrade, signature). The message after the code says why |

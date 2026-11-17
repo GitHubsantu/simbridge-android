@@ -36,7 +36,7 @@ Operational advice: generate a fresh key when moving from testing to real use; n
 ### Update trust model (1.1)
 The in-app updater checks three things, and they protect against different problems:
 1. **SHA-256 from `SHA256SUMS.txt`**: catches a damaged or mismatched download. The sums file comes from the same GitHub release as the APK, so on its own it does **not** protect against someone who can edit that release.
-2. **Same signing key as the installed app** (checked by SimBridge, and again by Android when installing): this is the real protection. Only whoever holds your `.jks` can produce an APK that installs over SimBridge.
+2. **Same signing key as the installed app** SimBridge compares the SHA-256 fingerprints of the signing certificates before it offers Install and shows both if they differ. If the phone cannot read a certificate, SimBridge continues with a warning. In every case Android's installer enforces the rule itself: an update signed with a different key is refused. This is the real protection.
 3. **Android's installer** performs the install. SimBridge asks Android (12 and newer) not to require user action; Android may then apply the update without showing its confirmation screen in some cases, for example when SimBridge itself installed the previous version. Do not treat the confirmation as a guaranteed security control.
 
 So the keys to protect are your `.jks` and `keystore.properties` (offline backup, never in git) and your GitHub account (use two-factor authentication). Anyone who controls both the release and the signing key can ship code to every phone that presses *Update*.

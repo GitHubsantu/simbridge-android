@@ -26,7 +26,7 @@ private sealed interface UpdatePhase {
     data class UpToDate(val tag: String) : UpdatePhase
     data class Available(val release: AppRelease) : UpdatePhase
     data class Downloading(val done: Long, val total: Long) : UpdatePhase
-    data class Ready(val release: AppRelease, val file: File) : UpdatePhase
+    data class Ready(val release: AppRelease, val file: File, val keyNote: String? = null) : UpdatePhase
     data class Failed(val message: String) : UpdatePhase
 }
 
@@ -59,8 +59,17 @@ fun AppUpdateCard(app: SimBridgeApplication) {
                         phase = UpdatePhase.Downloading(0, r.apkSize)
                         AppUpdater.download(context, r) { d, t -> phase = UpdatePhase.Downloading(d, t) }.fold(
                             onSuccess = { f ->
-                                phase = if (AppUpdater.signaturesMatch(context, f)) UpdatePhase.Ready(r, f)
-                                else UpdatePhase.Failed("The download is signed with a different key than the installed app, so Android would refuse it.")
+                                phase = when (val k = AppUpdater.checkKey(context, f)) {
+                                    is AppUpdater.KeyCheck.Match -> UpdatePhase.Ready(r, f)
+                                    is AppUpdater.KeyCheck.Unreadable -> UpdatePhase.Ready(
+                                        r, f,
+                                        keyNote = "SimBridge could not pre-check the signing key (${k.reason}). Android's installer still refuses an update that is signed with a different key.",
+                                    )
+                                    is AppUpdater.KeyCheck.Mismatch -> UpdatePhase.Failed(
+                                        "The download is signed with a different key than the installed app, so Android would refuse it.\n" +
+                                            "Installed: ${k.installed.take(16)}\u2026\nDownload: ${k.download.take(16)}\u2026",
+                                    )
+                                }
                             },
                             onFailure = { phase = UpdatePhase.Failed(it.message ?: it.javaClass.simpleName) },
                         )
@@ -74,9 +83,11 @@ fun AppUpdateCard(app: SimBridgeApplication) {
             }
             is UpdatePhase.Ready -> {
                 Text(
-                    "Version ${p.release.tag} downloaded. Checksum and signing key verified.",
+                    if (p.keyNote == null) "Version ${p.release.tag} downloaded. Checksum and signing key verified."
+                    else "Version ${p.release.tag} downloaded. Checksum verified.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                p.keyNote?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 Button(onClick = {
                     if (!AppUpdater.canInstall(context)) {
                         note = "Allow SimBridge to install apps on the next screen, go back, then tap Install again."

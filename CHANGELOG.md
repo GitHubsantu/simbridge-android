@@ -1,6 +1,18 @@
 # Changelog
 
 All notable changes to SimBridge Gateway. Versions follow `versionName` in `app/build.gradle.kts`; `versionCode` must increase with every release that is meant to update an installed copy.
+## 1.1.3 (versionCode 5)
+
+### Fixed
+- In-app update: a correct download could be rejected with "signed with a different key than the installed app" (seen on a Poco C51 even though both APKs carried the same certificate). The key check now compares SHA-256 fingerprints (new Android API with a legacy fallback), shows both fingerprints if they really differ, and when the phone cannot read a certificate at all it continues with a note instead of blocking: Android's installer still refuses an update signed with a different key.
+
+### Upgrading
+- From 1.1.2 or earlier: install 1.1.3 by hand once (`adb install -r <file>` or open the file on the phone), because the updater in those versions contains the bug. Later updates work inside the app.
+
+## 1.1.2 (versionCode 4)
+
+### Added 
+- Updated bundled cloudflared to 2026.11.0 (patched for Android DNS).
 
 ## 1.1.1 (versionCode 3)
 

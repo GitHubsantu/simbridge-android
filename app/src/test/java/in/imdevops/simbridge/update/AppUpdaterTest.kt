@@ -2,6 +2,7 @@ package `in`.imdevops.simbridge.update
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppUpdaterTest {
@@ -39,5 +40,21 @@ class AppUpdaterTest {
         val utf16 = byteArrayOf(0xFF.toByte(), 0xFE.toByte()) + line.toByteArray(Charsets.UTF_16LE)
         assertEquals(line, AppUpdater.decodeText(utf16))
         assertEquals(line, AppUpdater.decodeText(("\uFEFF" + line).toByteArray(Charsets.UTF_8)))
+    }
+
+    @Test fun sha256HexMatchesKnownValue() {
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", AppUpdater.sha256Hex("abc".toByteArray()))
+    }
+
+    @Test fun comparesSigningKeys() {
+        assertEquals(AppUpdater.KeyCheck.Match, AppUpdater.compareKeys(setOf("aa"), setOf("aa")))
+        assertEquals(AppUpdater.KeyCheck.Match, AppUpdater.compareKeys(setOf("aa", "bb"), setOf("bb", "aa")))
+        val mismatch = AppUpdater.compareKeys(setOf("aa"), setOf("bb"))
+        assertTrue(mismatch is AppUpdater.KeyCheck.Mismatch)
+        assertEquals("aa", (mismatch as AppUpdater.KeyCheck.Mismatch).installed)
+        assertEquals("bb", mismatch.download)
+        // An unreadable certificate must never be reported as a (false) key mismatch.
+        assertTrue(AppUpdater.compareKeys(emptySet(), setOf("aa")) is AppUpdater.KeyCheck.Unreadable)
+        assertTrue(AppUpdater.compareKeys(setOf("aa"), emptySet()) is AppUpdater.KeyCheck.Unreadable)
     }
 }

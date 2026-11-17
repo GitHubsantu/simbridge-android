@@ -43,6 +43,25 @@ object AppUpdater {
 
     // ---------- pure helpers (unit-tested) ----------
 
+    /** Result of comparing the signing certificate of a downloaded APK with the installed app's. */
+    sealed interface KeyCheck {
+        data object Match : KeyCheck
+        data class Mismatch(val installed: String, val download: String) : KeyCheck
+        data class Unreadable(val reason: String) : KeyCheck
+    }
+
+    /** Lower-case hex SHA-256 of [bytes] (used for certificate fingerprints). */
+    fun sha256Hex(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    /** Compares two sets of certificate SHA-256 fingerprints. An empty set means "could not be read". */
+    fun compareKeys(installed: Set<String>, download: Set<String>): KeyCheck = when {
+        installed.isEmpty() -> KeyCheck.Unreadable("the installed app's signing certificate could not be read")
+        download.isEmpty() -> KeyCheck.Unreadable("the downloaded file's signing certificate could not be read")
+        installed == download -> KeyCheck.Match
+        else -> KeyCheck.Mismatch(installed.sorted().joinToString(","), download.sorted().joinToString(","))
+    }
+
     /** "v1.2.3" -> [1,2,3]; null when there is no leading number. Ignores suffixes like "-beta". */
     fun versionParts(v: String): List<Int>? {
         val m = Regex("""^[vV]?(\d+(?:\.\d+)*)""").find(v.trim()) ?: return null
@@ -206,7 +225,7 @@ object AppUpdater {
     @Suppress("DEPRECATION")
     private fun packageInfo(context: Context, apk: File?): PackageInfo? {
         val pm = context.packageManager
-        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES or PackageManager.GET_SIGNATURES else PackageManager.GET_SIGNATURES
         return try {
             if (apk == null) pm.getPackageInfo(context.packageName, flags) else pm.getPackageArchiveInfo(apk.path, flags)
         } catch (e: PackageManager.NameNotFoundException) {
@@ -214,19 +233,22 @@ object AppUpdater {
         }
     }
 
+    /** SHA-256 fingerprints of the signing certificates; empty when the package info carries none. */
     @Suppress("DEPRECATION")
-    private fun certs(info: PackageInfo?): Set<String> {
+    private fun certDigests(info: PackageInfo?): Set<String> {
         if (info == null) return emptySet()
-        val sigs = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else info.signatures
-        return sigs?.map { it.toCharsString() }?.toSet() ?: emptySet()
+        val modern = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners?.toList() else null
+        val sigs = if (!modern.isNullOrEmpty()) modern else info.signatures?.toList().orEmpty()
+        return sigs.map { sha256Hex(it.toByteArray()) }.toSet()
+    }
+
+    /** Compares the downloaded APK's signing key with the installed app's. Android's installer enforces the same rule. */
+    suspend fun checkKey(context: Context, apk: File): KeyCheck = withContext(Dispatchers.IO) {
+        compareKeys(certDigests(packageInfo(context, null)), certDigests(packageInfo(context, apk)))
     }
 
     /** True only when the downloaded APK is signed with the same key as the installed app. */
-    suspend fun signaturesMatch(context: Context, apk: File): Boolean = withContext(Dispatchers.IO) {
-        val mine = certs(packageInfo(context, null))
-        val theirs = certs(packageInfo(context, apk))
-        mine.isNotEmpty() && mine == theirs
-    }
+    suspend fun signaturesMatch(context: Context, apk: File): Boolean = checkKey(context, apk) is KeyCheck.Match
 
     fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
 
